@@ -1,7 +1,4 @@
 // HANGMEN SERVER
-//
-// To run server
-//      node server.js
 
 // DEPENDENCIES
 

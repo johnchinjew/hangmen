@@ -118,6 +118,8 @@ dist
 elm-stuff
 # elm-repl generated files
 repl-temp-*
+# elm build files (dependent on how you build the client)
+client/client.js
 
 # General
 .DS_Store

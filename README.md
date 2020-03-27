@@ -1,15 +1,17 @@
 # Hangmen
 
-## Build
+## TODO
 
-### Server
+- Implement server API.
+
+## Run server
 
 ```
 node server.js
 ```
 
-### Client
+## Build client
 
 ```
-elm make src/Main.elm -- output=client.js
+cd client && elm make src/Main.elm --output=client.js && cd ..
 ```

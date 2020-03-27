@@ -1,107 +1,109 @@
-// HANGMEN SERVER
-
-// DEPENDENCIES
+import { Player } from './src/player.js'
+import { Session } from './src/session.js'
+import { Alphabet } from './src/alphabet.js'
 
 const express = require('express')
 
-// SETUP SERVER
+/*********
+ * MODEL *
+ *********/
 
-const server = express()
-const port = 3000
+let sessions = {}
 
-// USER INTERFACE END POINT
-
-server.use('/', express.static("client"))
-
-// GAME END POINTS
-
-server.post('/get-new-session', (req, res) => {
-    console.log(req)
-    let ret = createNewSession()
-    res.send('')
-})
-server.post('/join-session', (req, res) => {
-    console.log(req)
-    addPlayer()
-    res.send('')
-})
-server.post('/get-state', (req, res) => {
-    console.log(req)
-    getState()
-    res.send('')
-})
-server.post('/post-action', (req, res) => {
-    console.log(req)
-    handleAction()
-    res.send('')
-})
-
-server.listen(port, () => console.log(`Listening on port ${port}!`))
-
-// HANDLE END POINTS
-
+// UPDATE MODEL
 // Create new session
 // Returns SessionId of new session
 function createNewSession() {
-    return newId()
+    const newSession = new Session()
+    sessions[newSession.getId()] = newSession
+    return newSession.getId()
 }
 
 // Add player NAME to session SID
-// Returns Optional<PlayerId>
+// Returns PlayerId
 function addPlayer(sid, name) {
+    const newPlayer = new Session(name)
+    sessions[sid].addPlayer(newPlayer)
+    return newPlayer.getId()
 }
 
 // Get session's current state
 // Returns Session
 function getState(sid) {
+    return sessions[sid]
 }
 
-// Updates internal game state with action ACT
+// Updates internal game state with action ACT(ARG)
 // Action cases:
 //      - Ready (word)
 //      - Guess (letter)
 //      - Guess (word)
 // Returns Void
-function handleAction(sid, pid, act) {
+const actions = {
+    GUESS: {
+        LETTER: 'guess.letter',
+        WORD: 'guess.word'
+    },
+    READY: 'ready'
 }
 
-// MODEL
+// Problems:
+//      - Need to differentiate between different actions
+//      - Need variable number of arguments
+function applyAction(sid, pid, act, args) {
 
-let sessions = {}
-let nextId = 0
+    let session = sessions[sid]
+    let player = session.getPlayer(pid)
 
-function newId() {
-    return nextId++
-}
+    switch (act) {
+        case actions.READY:
 
-// Session ADT:
-//      - id: SessionId
-//      - players: Dict<PlayerId, Player>
-//      - alphabet: Bitmap
-//      - turn: PlayerId
-//      - lobby: Bool
-function session() {
-    return {
-        id: newId(),
-        players: {},
-        alphabet: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        turn: 0,
-        lobby: true
+            player.toggleReady()
+            
+        case actions.GUESS.WORD:
+            // TODO: Handle target word guesses - needs targeted player argument
+
+        case actions.GUESS.LETTER:
+            if (session.isLetterSet(args[0])) {
+                // Reject if letter already guessed
+                return
+            } else {
+                // Set letter if not guessed 
+                session.setLetter(arg) 
+            }
     }
 }
 
-// Player ADT:
-//    - id: PlayerId
-//    - name: String
-//    - word: String
-//    - ready: Bool
-//    - alive: Bool
-function player() {
-    return {
-        id: newId(),
-        name: "",
-        word: "",
-        ready: false,
-        alive: false
-    }
-}
+/**********
+ * SERVER *
+ **********/
+
+const server = express()
+const port = 3000
+
+/* Client end point. */
+server.use('/', express.static("client"))
+
+/* Server end points. */
+server.post('/get-new-session', (req, res) => {
+    console.log(req)
+    // createNewSession()
+    res.send('')
+})
+server.post('/join-session', (req, res) => {
+    console.log(req)
+    // addPlayer()
+    res.send('')
+})
+server.post('/get-state', (req, res) => {
+    console.log(req)
+    // getState()
+    res.send('')
+})
+server.post('/post-action', (req, res) => {
+    console.log(req)
+    // applyAction()
+    res.send('')
+})
+
+server.listen(port, () => console.log(`Listening on port ${port}!`))

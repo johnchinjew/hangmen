@@ -1,11 +1,13 @@
 {
+  "type": "module",
   "name": "server",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
-  "type": "module",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "server": "node server.js",
+    "client": "cd client && elm make src/Main.elm --output=client.js --optimize && cd .. && serve ."
   },
   "author": "",
   "license": "ISC",

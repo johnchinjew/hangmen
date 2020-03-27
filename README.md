@@ -2,16 +2,16 @@
 
 ## TODO
 
-- Implement server API.
+- Implement server.
 
 ## Run server
 
 ```
-node server.js
+npm run server
 ```
 
-## Build client
+## Run client
 
 ```
-cd client && elm make src/Main.elm --output=client.js && cd ..
+npm run client
 ```

@@ -12,9 +12,13 @@ export function SessionManager() {
   }
 
   this.addPlayer = function(sid, name) {
-    const newPlayer = new Session(name)
-    this.sessions[sid].addPlayer(newPlayer)
-    return newPlayer.getId()
+    const newPlayer = new Player(name)
+    const session = this.sessions[sid]
+    if (session) {
+      session.addPlayer(newPlayer)
+      return newPlayer.getId()
+    }
+    return undefined
   }
 
   this.getSession = function(sid) {

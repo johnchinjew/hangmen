@@ -2,16 +2,11 @@
 
 ## TODO
 
-- Implement server.
+- Switch to JS classes.
+- Finish server.
 
-## Run server
-
-```
-npm run server
-```
-
-## Run client
+## Build and run
 
 ```
-npm run client
+npm run start
 ```

@@ -2,13 +2,9 @@ module Main exposing (..)
 
 import Browser
 import Html exposing (Html)
-import Html.Events
+import Html.Events as Events
 import Http
-import Set exposing (Set)
-
-
-alphabet =
-    "abcdefghijklmnopqrstuvwxyz"
+import Json.Encode as Encode
 
 
 
@@ -29,14 +25,12 @@ main =
 
 
 type alias Model =
-    { words : List String
-    , selected : Set Char
-    }
+    ()
 
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( Model [ "hello", "world" ] (Set.fromList (String.toList "abcdefghijkl")), Cmd.none )
+    ( (), Cmd.none )
 
 
 
@@ -44,22 +38,98 @@ init _ =
 
 
 type Msg
-    = NoOp
-    | HttpNoOp (Result Http.Error ())
-    | Post
+    = DiscardString String
+    | ReceivedString (Result Http.Error String)
+    | PostNewSession
+    | PostJoinSession
+    | PostGetState
+    | PostSetWord
+    | PostGuessLetter
+    | PostGuessWord
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        NoOp ->
+        DiscardString _ ->
             ( model, Cmd.none )
 
-        HttpNoOp _ ->
-            update NoOp model
+        ReceivedString response ->
+            case response of
+                Ok string ->
+                    update (DiscardString (Debug.log "Received" string)) model
 
-        Post ->
-            ( model, blankPost )
+                Err err ->
+                    ( model, Cmd.none )
+
+        PostNewSession ->
+            ( model
+            , Http.post
+                { url = "http://localhost:3000/new-session"
+                , body = Http.emptyBody
+                , expect = Http.expectString ReceivedString
+                }
+            )
+
+        PostJoinSession ->
+            let
+                body : Encode.Value
+                body =
+                    Encode.object
+                        [ ( "sid", Encode.string "be6a285d-6342-4964-b190-13c5a3d1fd44" )
+                        , ( "name", Encode.string "Phineas" )
+                        ]
+            in
+            ( model
+            , Http.post
+                { url = "http://localhost:3000/join-session"
+                , body = Http.jsonBody body
+                , expect = Http.expectString ReceivedString
+                }
+            )
+
+        PostGetState ->
+            let
+                body : Encode.Value
+                body =
+                    Encode.object
+                        [ ( "sid", Encode.string "be6a285d-6342-4964-b190-13c5a3d1fd44" )
+                        ]
+            in
+            ( model
+            , Http.post
+                { url = "http://localhost:3000/get-state"
+                , body = Http.jsonBody body
+                , expect = Http.expectString ReceivedString
+                }
+            )
+
+        PostSetWord ->
+            ( model
+            , Http.post
+                { url = "http://localhost:3000/set-word"
+                , body = Http.emptyBody
+                , expect = Http.expectString ReceivedString
+                }
+            )
+
+        PostGuessLetter ->
+            ( model
+            , Http.post
+                { url = "http://localhost:3000/guess-letter"
+                , body = Http.emptyBody
+                , expect = Http.expectString ReceivedString
+                }
+            )
+
+        PostGuessWord ->
+            ( model
+            , Http.post
+                { url = "http://localhost:3000/guess-word"
+                , body = Http.emptyBody
+                , expect = Http.expectString ReceivedString
+                }
+            )
 
 
 
@@ -68,40 +138,11 @@ update msg model =
 
 view : Model -> Html Msg
 view model =
-    Html.div []
-        [ Html.ul [] (viewWords model)
-        , Html.button [ Html.Events.onClick Post ] [ Html.text "POST" ]
+    Html.ul []
+        [ Html.li [] [ Html.button [ Events.onClick PostNewSession ] [ Html.text "POST: new-session" ] ]
+        , Html.li [] [ Html.button [ Events.onClick PostJoinSession ] [ Html.text "POST: join-session" ] ]
+        , Html.li [] [ Html.button [ Events.onClick PostGetState ] [ Html.text "POST: get-state" ] ]
+        , Html.li [] [ Html.button [ Events.onClick PostSetWord ] [ Html.text "POST: set-word" ] ]
+        , Html.li [] [ Html.button [ Events.onClick PostGuessLetter ] [ Html.text "POST: guess-letter" ] ]
+        , Html.li [] [ Html.button [ Events.onClick PostGuessWord ] [ Html.text "POST: guess-word" ] ]
         ]
-
-
-viewWords : Model -> List (Html Msg)
-viewWords model =
-    List.map
-        (\word ->
-            Html.li
-                []
-                [ Html.text (unfinishedWord model.selected word) ]
-        )
-        model.words
-
-
-unfinishedWord : Set Char -> String -> String
-unfinishedWord selectedLetters word =
-    String.map
-        (\letter ->
-            if Set.member letter selectedLetters then
-                letter
-
-            else
-                '-'
-        )
-        word
-
-
-blankPost : Cmd Msg
-blankPost =
-    Http.post
-        { url = "http://localhost:3000/get-new-session"
-        , body = Http.stringBody "application/json" "sup"
-        , expect = Http.expectWhatever HttpNoOp
-        }

@@ -1,9 +1,10 @@
 import uuid from 'uuid'
+import { Alphabet } from './alphabet.js'
 
 export function Session() {
   this.id = uuid.v4()
   this.players = {}
-  this.alphabet = Alphabet()
+  this.alphabet = new Alphabet()
   this.isLobby = true
   this.turn = 0
 
@@ -28,6 +29,6 @@ export function Session() {
   }
 
   this.reset = function() {
-    this.alphabet = Alphabet()
+    this.alphabet = new Alphabet()
   }
 }

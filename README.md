@@ -2,11 +2,10 @@
 
 ## TODO
 
-- Switch to JS classes.
-- Finish server.
+- Finish server (TODOs).
 
 ## Build and run
 
 ```
-npm run start
+npm start
 ```

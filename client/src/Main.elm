@@ -42,6 +42,7 @@ type Msg
     | ReceivedString (Result Http.Error String)
     | PostNewSession
     | PostJoinSession
+    | PostResetSession
     | PostGetState
     | PostSetWord
     | PostGuessLetter
@@ -66,6 +67,15 @@ update msg model =
             ( model
             , Http.post
                 { url = "http://localhost:3000/new-session"
+                , body = Http.emptyBody
+                , expect = Http.expectString ReceivedString
+                }
+            )
+
+        PostResetSession ->
+            ( model
+            , Http.post
+                { url = "http://localhost:3000/reset-session"
                 , body = Http.emptyBody
                 , expect = Http.expectString ReceivedString
                 }
@@ -140,6 +150,7 @@ view : Model -> Html Msg
 view model =
     Html.ul []
         [ Html.li [] [ Html.button [ Events.onClick PostNewSession ] [ Html.text "POST: new-session" ] ]
+        , Html.li [] [ Html.button [ Events.onClick PostResetSession ] [ Html.text "POST: reset-session" ] ]
         , Html.li [] [ Html.button [ Events.onClick PostJoinSession ] [ Html.text "POST: join-session" ] ]
         , Html.li [] [ Html.button [ Events.onClick PostGetState ] [ Html.text "POST: get-state" ] ]
         , Html.li [] [ Html.button [ Events.onClick PostSetWord ] [ Html.text "POST: set-word" ] ]

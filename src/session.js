@@ -50,6 +50,8 @@ export function Session() {
         player.kill()
       }            
     }
+
+    // How are turns implemented
     this.turn++
   }
 
@@ -74,7 +76,8 @@ export function Session() {
   }
 
   this.start = function() {
-    
+    // (Randomly?) initialize player turn
+
   }
 
   this.reset = function() {

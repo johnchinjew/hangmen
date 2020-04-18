@@ -27,7 +27,7 @@ server.post('/join-session', (req, res) => {
 
   const { sid, name } = req.body
   
-  if (typeof sid !== 'string' || typeof name !== 'string') {
+  if (typeof sid !== 'string' || typeof name !== 'strine') {
     res.end()
     return
   }
@@ -110,7 +110,7 @@ server.post('/guess-letter', (req, res) => {
 // req.body = { sid : string (session id), pid : string (target player id), word : string }
 // res = empty
 server.post('/guess-word', (req, res) => {
-  console.log(`POST guess-word ${JSON.stringify(reg.body)}`)
+  console.log(`POST guess-word ${JSON.stringify(req.body)}`)
   
   const { sid, pid, word } = req.body
   
@@ -132,7 +132,7 @@ server.post('/guess-word', (req, res) => {
 // req.body = { sid : string (session id) }
 // res = empty
 server.post('/start-session', (req, res) => {
-  console.log(`POST start-session ${JSON.stringify(reg.body)}`)
+  console.log(`POST start-session ${JSON.stringify(req.body)}`)
 
   const { sid } = req.body
 
@@ -161,7 +161,7 @@ server.post('/start-session', (req, res) => {
 // req.body = { sid : string (session id) }
 // res = empty
 server.post('/reset-session', (req, res) => {
-  console.log(`POST reset-session ${JSON.stringify(reg.body)}`)
+  console.log(`POST reset-session ${JSON.stringify(req.body)}`)
 
   const { sid } = req.body
 

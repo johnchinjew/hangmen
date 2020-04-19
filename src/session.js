@@ -39,6 +39,7 @@ export function Session() {
 
   const start = function () {
     // Randomly generate turn order using keys in player map
+    console.log(this.players)
     this.turnOrder = Object.keys(this.players)  // assumes a list is returned 
     shuffle(this.turnOrder)
     this.isLobby = false
@@ -56,9 +57,9 @@ export function Session() {
     player.setWordAndReady(word)
     
     // If all players are ready, start the game
-    const allReady = this.players.reduce((a, p) => a && p.isReady(), true)
+    const allReady = Object.values(this.players).reduce((a, p) => a && p.isReady(), true)
     if (allReady) {
-      this.start()
+      start()
     }
   }
 

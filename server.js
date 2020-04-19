@@ -27,7 +27,7 @@ server.post('/join-session', (req, res) => {
 
   const { sid, name } = req.body
   
-  if (typeof sid !== 'string' || typeof name !== 'strine') {
+  if (typeof sid !== 'string' || typeof name !== 'string') {
     res.end()
     return
   }
@@ -62,7 +62,7 @@ server.post('/get-state', (req, res) => {
     return
   }
 
-  res.json(session) // TODO: sanitize
+  res.json(session) // TODO: prepare/sanitize 
 })
 
 // req.body = { sid : string (session id), pid : string (player id), word : string }
@@ -128,36 +128,35 @@ server.post('/guess-word', (req, res) => {
   res.end()
 })
 
-// TODO: explicit start game api
-// req.body = { sid : string (session id) }
+// TODO: what happens if player leaves lobby/game?
+//  - Immediately lose - kick player from session
+//  - Timer to detect when player leaves?
+
+// req.body = { sid : string (session id), pid : string (player id) }
 // res = empty
-server.post('/start-session', (req, res) => {
-  console.log(`POST start-session ${JSON.stringify(req.body)}`)
+server.post('/exit-session', (req, res) => {
+  console.log(`POST exit-session ${JSON.stringify(req.body)}`)
 
-  const { sid } = req.body
+  const { sid, pid } = req.body
 
-  if (typeof sid !== 'string') {
+  if (typeof sid !== 'string' || typeof pid !== 'string') {
     res.end()
-    return 
+    return
   }
-  
+
   const session = sessionManager.getSession(sid)
 
   if (session) {
-    session.start()
+    session.removePlayer(pid)
   }
 
-  res.end()  
+  res.end()
 })
 
-// TODO: what happens if player leaves lobby/game?
-//  - Immediately lose - kick player from session
+// NOTE: On gameover, every user is presented with a "Play again" button.
+// If any user taps this button, the session re-enters a lobby state and
+// all users are sent back to the lobby.
 
-// TODO: whoever clicks "new game"/reset, rejoins the lobby? 
-//  - Detect end-game-state: remove all players from players collection
-//  - whoever chooses to reset-state => re-add their id to players collection
-
-// TODO: restart game api
 // req.body = { sid : string (session id) }
 // res = empty
 server.post('/reset-session', (req, res) => {

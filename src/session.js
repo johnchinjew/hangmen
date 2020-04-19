@@ -5,9 +5,9 @@ import { Alphabet } from './alphabet.js'
 export function Session() {
   this.id = uuid.v4()
   this.players = {}
+  this.turnOrder = []
   this.alphabet = new Alphabet()
   this.isLobby = true
-  this.turn = 0
 
   this.getId = function() {
     return this.id
@@ -18,6 +18,30 @@ export function Session() {
     const newId = newPlayer.getId()
     this.players[newId] = newPlayer
     return newId
+  }
+
+  const killPlayer = function(pid) {
+    this.players[pid].kill()
+    const turn = this.turnOrder.indexOf(pid)
+    if (turn > -1) {
+      this.turnOrder.splice(turn, 1)
+    }
+  }
+
+  this.removePlayer = function(pid) {
+    if (!(pid in this.players)) {
+      return 
+    }
+
+    delete this.players[pid] 
+    killPlayer(pid)
+  }
+
+  const start = function () {
+    // Randomly generate turn order using keys in player map
+    this.turnOrder = Object.keys(this.players)  // assumes a list is returned 
+    shuffle(this.turnOrder)
+    this.isLobby = false
   }
 
   this.setPlayerWord = function(pid, word) {
@@ -34,7 +58,7 @@ export function Session() {
     // If all players are ready, start the game
     const allReady = this.players.reduce((a, p) => a && p.isReady(), true)
     if (allReady) {
-      this.isLobby = false
+      this.start()
     }
   }
 
@@ -45,21 +69,20 @@ export function Session() {
     this.alphabet.set(letter)
     
     // With this newly guessed letter, some players may die
-    for (const player of this.players) {
+    for (const pid of this.players) {
+      const player = this.players[pid]
       if (player.isAlive() && this.alphabet.canSpell(player.getWord())) {
-        player.kill()
+        killPlayer(pid)
       }            
     }
 
-    // How are turns implemented
-    this.turn++
+    if (checkGameOver()) {
+      progressTurn()
+    }
   }
 
   const currentPlayer = function() {
-    const ids = Object.keys(this.players)
-    ids.sort()
-    const currentId = ids[this.turn]
-    return this.players[currentId]
+    return this.players[this.turnOrder[0]]
   }
 
   this.guessWord = function(pid, word) {
@@ -70,17 +93,35 @@ export function Session() {
     const guesser = currentPlayer()
     
     if (word === target.getWord()) 
-      target.kill()
+      killPlayer(target.getId())
     else
-      guesser.kill()
+      killPlayer(guesser.getId())
+
+    if (checkGameOver()) {
+      progressTurn()
+    }
   }
 
-  this.start = function() {
-    // (Randomly?) initialize player turn
+  const checkGameOver = function() {
+    let gameOver = true
+    for (const pid of this.players) {
+      const player = this.players[pid]
+      if (pid !== this.turnOrder[0] && player.isAlive())
+        gameOver = false
+    }
+    return gameOver
+  }
 
+  const progressTurn = function() {    
+    // Let's hope this works
+    const top = this.turnOrder.splice(0, 1)[0]
+    this.turnOrder.push(top)
   }
 
   this.reset = function() {
+    this.players = {}
+    this.turnOrder = []
     this.alphabet = new Alphabet()
+    this.isLobby = true
   }
 }

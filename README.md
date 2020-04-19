@@ -2,7 +2,7 @@
 
 ## TODO
 
-- Finish server (TODOs).
+- Handle game over (wins and ties)
 
 ## Build and run
 

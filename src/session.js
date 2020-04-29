@@ -2,6 +2,21 @@ import uuid from 'uuid'
 import { Player } from './player.js'
 import { Alphabet } from './alphabet.js'
 
+/**
+ * Shuffles array in place.
+ * @param {Array} a items An array containing the items.
+ */
+function shuffle(a) {
+  var j, x, i;
+  for (i = a.length - 1; i > 0; i--) {
+      j = Math.floor(Math.random() * (i + 1));
+      x = a[i];
+      a[i] = a[j];
+      a[j] = x;
+  }
+  return a;
+}
+
 export function Session() {
   this.id = uuid.v4()
   this.players = {}
@@ -15,6 +30,9 @@ export function Session() {
 
   this.addPlayer = function(name) {
     const newPlayer = new Player(name)
+    if (!this.isLobby) {
+      newPlayer.isAlive = false
+    }
     const newId = newPlayer.getId()
     this.players[newId] = newPlayer
     return newId
@@ -37,14 +55,6 @@ export function Session() {
     killPlayer(pid)
   }
 
-  const start = function () {
-    // Randomly generate turn order using keys in player map
-    console.log(this.players)
-    this.turnOrder = Object.keys(this.players)  // assumes a list is returned 
-    shuffle(this.turnOrder)
-    this.isLobby = false
-  }
-
   this.setPlayerWord = function(pid, word) {
     if (!this.isLobby)
       return
@@ -56,10 +66,17 @@ export function Session() {
 
     player.setWordAndReady(word)
     
+    // Check number of players in lobby
+    if (Object.keys(this.players).length < 2)
+      return 
+    
     // If all players are ready, start the game
-    const allReady = Object.values(this.players).reduce((a, p) => a && p.isReady(), true)
+    const allReady = Object.values(this.players).reduce((a, p) => a && p.isReady() , true)
     if (allReady) {
-      start()
+      // Starting game process
+      this.turnOrder = Object.keys(this.players)  // assumes a list is returned 
+      shuffle(this.turnOrder)
+      this.isLobby = false
     }
   }
 

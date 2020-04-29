@@ -63,6 +63,7 @@ server.post('/get-state', (req, res) => {
   }
 
   res.json(session) // TODO: prepare/sanitize 
+  res.end()
 })
 
 // req.body = { sid : string (session id), pid : string (player id), word : string }

@@ -4,8 +4,8 @@ export function Player(name) {
   this.id = uuid.v4()
   this.name = name
   this.word = ""
-  this.isReady = false
-  this.isAlive = true
+  this.ready = false
+  this.alive = true
 
   this.getId = function() {
     return this.id
@@ -16,11 +16,11 @@ export function Player(name) {
   }
 
   this.isReady = function() {
-    return this.isReady
+    return this.ready
   }
 
   this.isAlive = function() {
-    return this.isAlive
+    return this.alive
   }
 
   this.setWordAndReady = function(word) {

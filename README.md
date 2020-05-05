@@ -3,6 +3,7 @@
 ## TODO
 
 - Debug server and implement client
+- Make use of long-polling
 
 ## Build and run
 

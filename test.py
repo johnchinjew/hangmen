@@ -3,108 +3,151 @@ import json
 import unittest
 import time
 
+# Helper functions
+
+def check_post(test: unittest.TestCase,
+               post_type: str,
+               json: dict=None):
+    res, content_type = None, None
+    if post_type == 'new-session':
+        assert(json is None)
+        content_type = 'text/html'
+    elif post_type == 'join-session':
+        assert(json is not None and 'sid' in json 
+               and 'name' in json)
+        content_type = 'text/html'
+    elif post_type == 'get-state':
+        assert(json is not None and 'sid' in json)
+        content_type = 'application/json'
+    elif post_type == 'set-word':
+        assert(json is not None and 'sid' in json 
+               and 'pid' in json and 'word' in json)
+    elif post_type == 'guess-letter':
+        assert(json is not None and 'sid' in json 
+               and 'letter' in json)
+    elif post_type == 'guess-word':
+        assert (json is not None and 'sid' in json
+                and 'pid' in json and 'word' in json)
+    elif post_type == 'exit-session':
+        assert (json is not None and 'sid' in json
+                and 'pid' in json)
+    elif post_type == 'reset-session':
+        assert (json is not None and 'sid' in json)
+    else:
+        raise ValueError()
+    res = requests.post(f'http://localhost:3000/{post_type}', json=json)
+    return check_response(test, res, content_type)
+
+def check_response(test: unittest.TestCase,
+                    res: requests.Response,
+                    content_type:str=None):
+    res_data = None
+    if content_type is None:
+        test.assertNotIn('Content-Type', res.headers)
+    else:
+        test.assertIn('Content-Type', res.headers)
+        test.assertEqual(res.headers['Content-Type'], content_type+'; charset=utf-8')
+        test.assertNotEqual(len(res.text), 0)
+        if content_type == 'text/html':
+            res_data = res.text
+        elif content_type == 'application/json':
+            res_data = res.json()
+        else:
+            raise ValueError()
+    return res_data
+    
+def check_session_state(test: unittest.TestCase, 
+                        state: dict, sid:str=None, players:list=[],
+                        turnOrder:list=[], guessedLetters:str='', 
+                        isLobby:bool=True):
+
+    # First check consistency of input
+    if isLobby:
+        assert(len(turnOrder) == 0)
+        assert(len(guessedLetters) == 0)
+
+    # Run equality check on state using input
+    for attr in ['id', 'players', 'turnOrder', 'alphabet', 'isLobby']:
+        test.assertIn(attr, state)
+    if sid is not None:
+        test.assertEqual(state['id'], sid)
+    test.assertEqual(len(state['players']), len(players))
+    for pid in players: 
+        test.assertIn(pid, state['players'])
+    # Cannot check ACTUAL turn order (since it is shuffled)
+    # only check if they both contain same elements
+    for pid in turnOrder:
+        test.assertIn(pid, state['turnOrder'])
+    for c in 'abcdefghjiklmnopqrstuvwxyz':
+        test.assertIn(c, state['alphabet']['letters'])
+        if c in guessedLetters:
+            test.assertTrue(state['alphabet']['letters'][c])
+        else:
+            test.assertFalse(state['alphabet']['letters'][c])
+    test.assertEqual(state['isLobby'], isLobby)
+
+def check_player_state(test: unittest.TestCase,
+                       state: dict, pid: str, name: str,
+                       word:str='', ready:bool=False, alive:bool=True):
+    for attr in ['id', 'name', 'word', 'ready', 'alive']:
+        test.assertIn(attr, state)
+    if pid is not None:
+        test.assertEqual(state['id'], pid)
+    test.assertEqual(state['word'], word)
+    test.assertEqual(state['ready'], ready)
+    test.assertEqual(state['alive'], alive)
+
 class TestNewSession(unittest.TestCase):
     
     def test_create(self):
         # Create new session
-        res = requests.post("http://localhost:3000/new-session")
-        self.assertEqual(res.headers['Content-Type'], 'text/html; charset=utf-8')
-        self.assertNotEqual(len(res.text), 0)
-        sid = res.text
+        sid = check_post(self, 'new-session')
 
         # Get session state
-        json = {'sid': sid}
-        res  = requests.post("http://localhost:3000/get-state", json=json)
-        self.assertEqual(res.headers['Content-Type'], 'application/json; charset=utf-8')
-        state = res.json()
+        state = check_post(self, 'get-state', json={'sid': sid})
 
         # Check session state
-        for attr in ['id', 'players', 'turnOrder', 'alphabet', 'isLobby']:
-            self.assertIn(attr, state)
-        self.assertEqual(state['id'], sid)
-        self.assertEqual(len(state['players']), 0)
-        self.assertEqual(len(state['turnOrder']), 0)
-        self.assertIn('letters', state['alphabet'])
-        for c in 'abcdefghjiklmnopqrstuvwxyz':
-            self.assertIn(c, state['alphabet']['letters'])
-            self.assertFalse(state['alphabet']['letters'][c])
-        self.assertTrue(state['isLobby'])
+        check_session_state(self, state, sid)
 
 class TestJoinSession(unittest.TestCase):
 
     def setUp(self):
-        res = requests.post("http://localhost:3000/new-session")
-        self.sid = res.text
+        self.sid = check_post(self, 'new-session')
 
     def test_single_join_session(self):
         # Join created session
-        json = {'sid': self.sid, 'name': 'test_username'}
-        res = requests.post("http://localhost:3000/join-session", json=json)
-        self.assertEqual(res.headers['Content-Type'], 'text/html; charset=utf-8')
-        self.assertNotEqual(len(res.text), 0)
-        pid = res.text
+        pid = check_post(self, 'join-session', {'sid': self.sid, 'name': 'uname'})
 
         # Get session state
-        json = {'sid': self.sid}
-        res = requests.post("http://localhost:3000/get-state", json=json)
-        self.assertEqual(res.headers['Content-Type'], 'application/json; charset=utf-8')
-        state = res.json()        
+        session_state = check_post(self, 'get-state', {'sid': self.sid})
 
         # Check session state
-        self.assertEqual(len(state['players']), 1)
-        self.assertIn(pid, state['players'])
+        check_session_state(self, session_state, sid=self.sid, players=[pid])
 
         # Check player state
-        player = state['players'][pid]
-        self.assertEqual(player['name'], 'test_username')
-        self.assertEqual(player['word'], '')
-        self.assertFalse(player['ready'])
-        self.assertTrue(player['alive'])
+        player_state = session_state['players'][pid]
+        check_player_state(self, player_state, pid=pid, name='uname')
 
     def test_multiple_join_session(self):
         # Join created session
-        json = {'sid': self.sid, 'name': 'test_username1'}
-        res = requests.post("http://localhost:3000/join-session", json=json)
-        self.assertEqual(res.headers['Content-Type'], 'text/html; charset=utf-8')
-        self.assertNotEqual(len(res.text), 0)
-        pid1 = res.text
-
-        json = {'sid': self.sid, 'name': 'test_username2'}
-        res = requests.post("http://localhost:3000/join-session", json=json)
-        self.assertEqual(res.headers['Content-Type'], 'text/html; charset=utf-8')
-        self.assertNotEqual(len(res.text), 0)
-        pid2 = res.text
+        pid1 = check_post(self, 'join-session', {'sid': self.sid, 'name': 'uname1'})
+        pid2 = check_post(self, 'join-session', {'sid': self.sid, 'name': 'uname2'})
 
         # Get session state
-        json = {'sid': self.sid}
-        res = requests.post("http://localhost:3000/get-state", json=json)
-        self.assertEqual(res.headers['Content-Type'], 'application/json; charset=utf-8')
-        state = res.json()        
+        session_state = check_post(self, 'get-state', {'sid': self.sid})
 
         # Check session state
-        self.assertEqual(len(state['players']), 2)
-        self.assertIn(pid1, state['players'])
-        self.assertIn(pid2, state['players'])
-
+        check_session_state(self, session_state, sid=self.sid, players=[pid1, pid2])
+        
         # Check player state
-        player1 = state['players'][pid1]
-        self.assertEqual(player1['name'], 'test_username1')
-        self.assertEqual(player1['word'], '')
-        self.assertFalse(player1['ready'])
-        self.assertTrue(player1['alive'])
-
-        player2 = state['players'][pid2]
-        self.assertEqual(player2['name'], 'test_username2')
-        self.assertEqual(player2['word'], '')
-        self.assertFalse(player2['ready'])
-        self.assertTrue(player2['alive'])
-
+        for pid, name in zip([pid1, pid2], ['uname1', 'uname2']):
+            player_state = session_state['players'][pid]
+            check_player_state(self, player_state, pid=pid, name=name)
 
 class TestSetWord(unittest.TestCase):
     
     def setUp(self):
-        res = requests.post("http://localhost:3000/new-session")
-        self.sid = res.text
+        self.sid = check_post(self, 'new-session')
 
         self.username1 = 'test_username1'
         self.word1 = 'test_word1'
@@ -115,149 +158,112 @@ class TestSetWord(unittest.TestCase):
         self.username3 = 'test_username3'
         self.word3 = 'test_word3'
 
-        json = {'sid': self.sid, 'name': self.username1}
-        res = requests.post("http://localhost:3000/join-session", json=json)
-        self.pid1 = res.text
+        self.usernames = [self.username1, self.username2, self.username3]
+        self.words = [self.word1, self.word2, self.word3]
 
+        json = {'sid': self.sid, 'name': self.username1}
+        self.pid1 = check_post(self, 'join-session', json=json)
 
     def test_single_set_word(self):
         # Set word
         json = {'sid': self.sid, 'pid': self.pid1, 'word': self.word1}
-        res = requests.post("http://localhost:3000/set-word", json=json)
-        self.assertEqual(res.headers['Content-Length'], '0')
-
-        # Get session state
-        json = {'sid': self.sid}
-        res = requests.post("http://localhost:3000/get-state", json=json)
-        self.assertEqual(res.headers['Content-Type'], 'application/json; charset=utf-8')
-        state = res.json()        
+        check_post(self, 'set-word', json=json)
 
         # Allow server to update
         time.sleep(0.05)
 
+        # Get session state
+        session_state = check_post(self, 'get-state', {'sid': self.sid})
+
         # Check session state
-        self.assertEqual(len(state['players']), 1)
-        self.assertIn(self.pid1, state['players'])
-        self.assertTrue(state['isLobby'])
+        check_session_state(self, session_state, sid=self.sid,
+                            players=[self.pid1], turnOrder=[],
+                            isLobby=True)
 
         # Check player state
-        player = state['players'][self.pid1]
-        self.assertEqual(player['name'], self.username1)
-        self.assertEqual(player['word'], self.word1)
-        self.assertTrue(player['ready'])
-        self.assertTrue(player['alive'])
+        player_state = session_state['players'][self.pid1]
+        check_player_state(self, player_state, pid=self.pid1,
+                           name=self.username1,
+                           word=self.word1, ready=True)
 
     def test_multiple_set_word_no_start(self):
         # Add two other players
         json = {'sid': self.sid, 'name': self.username2}
-        pid2 = requests.post("http://localhost:3000/join-session", json=json).text
+        pid2 = check_post(self, 'join-session', json=json)
         json = {'sid': self.sid, 'name': self.username3}
-        pid3 = requests.post("http://localhost:3000/join-session", json=json).text
+        pid3 = check_post(self, 'join-session', json=json)
 
         # Set words for two other players
         json = {'sid': self.sid, 'pid': self.pid1, 'word': self.word1}
-        res = requests.post("http://localhost:3000/set-word", json=json)
-        self.assertEqual(res.headers['Content-Length'], '0')
+        check_post(self, 'set-word', json=json)
         json = {'sid': self.sid, 'pid': pid2, 'word': self.word2}
-        res = requests.post("http://localhost:3000/set-word", json=json)
-        self.assertEqual(res.headers['Content-Length'], '0')
+        check_post(self, 'set-word', json=json)
 
         # Allow server to update
         time.sleep(0.05)
 
         # Get session state
-        json = {'sid': self.sid}
-        res = requests.post("http://localhost:3000/get-state", json=json)
-        self.assertEqual(res.headers['Content-Type'], 'application/json; charset=utf-8')
-        state = res.json()    
+        session_state = check_post(self, 'get-state', {'sid': self.sid})
 
         # Check session state
-        self.assertEqual(len(state['players']), 3)
-        for pid in [self.pid1, pid2, pid3]:
-            self.assertIn(pid, state['players'])
-        self.assertTrue(state['isLobby'])
+        check_session_state(self, session_state, sid=self.sid,
+                            players=[self.pid1, pid2, pid3],
+                            turnOrder=[], isLobby=True)
 
-        # Check player state
-        player1 = state['players'][self.pid1]
-        self.assertEqual(player1['name'], self.username1)
-        self.assertEqual(player1['word'], self.word1)
-        self.assertTrue(player1['ready'])
-        self.assertTrue(player1['alive'])
-
-        player2 = state['players'][pid2]
-        self.assertEqual(player2['name'], self.username2)
-        self.assertEqual(player2['word'], self.word2)
-        self.assertTrue(player2['ready'])
-        self.assertTrue(player2['alive'])
-
-        player3 = state['players'][pid3]
-        self.assertEqual(player3['name'], self.username3)
-        self.assertEqual(player3['word'], '')
-        self.assertFalse(player3['ready'])
-        self.assertTrue(player3['alive'])
+        # Check player states 
+        zipped = zip([self.pid1, pid2, pid3], 
+                     self.usernames, 
+                     [self.word1, self.word2, ''])
+        for pid, name, word in zipped:
+            player_state = session_state['players'][pid]
+            ready = word != ''
+            check_player_state(self, player_state,
+                               pid=pid, name=name,
+                               word=word, ready=ready)
 
     def test_multiple_set_word_start(self):
         # Add two other players
         json = {'sid': self.sid, 'name': self.username2}
-        pid2 = requests.post("http://localhost:3000/join-session", json=json).text
+        pid2 = check_post(self, 'join-session', json=json)
         json = {'sid': self.sid, 'name': self.username3}
-        pid3 = requests.post("http://localhost:3000/join-session", json=json).text
+        pid3 = check_post(self, 'join-session', json=json)
 
         # Set words for two other players
         json = {'sid': self.sid, 'pid': self.pid1, 'word': self.word1}
-        res = requests.post("http://localhost:3000/set-word", json=json)
-        self.assertEqual(res.headers['Content-Length'], '0')
+        check_post(self, 'set-word', json=json)
         json = {'sid': self.sid, 'pid': pid2, 'word': self.word2}
-        res = requests.post("http://localhost:3000/set-word", json=json)
-        self.assertEqual(res.headers['Content-Length'], '0')
+        check_post(self, 'set-word', json=json)
         json = {'sid': self.sid, 'pid': pid3, 'word': self.word3}
-        res = requests.post("http://localhost:3000/set-word", json=json)
-        self.assertEqual(res.headers['Content-Length'], '0') 
+        check_post(self, 'set-word', json=json)
 
         # Allow server to update
         time.sleep(0.05)
 
         # Get session state
-        json = {'sid': self.sid}
-        res = requests.post("http://localhost:3000/get-state", json=json)
-        self.assertEqual(res.headers['Content-Type'], 'application/json; charset=utf-8')
-        state = res.json()    
+        session_state = check_post(self, 'get-state', {'sid': self.sid})
 
         # Check session state
-        self.assertEqual(len(state['players']), 3)
-        for pid in [self.pid1, pid2, pid3]:
-            self.assertIn(pid, state['players'])
-        self.assertEqual(len(state['turnOrder']), 3)
-        self.assertFalse(state['isLobby'])
+        check_session_state(self, session_state, sid=self.sid,
+                            players=[self.pid1, pid2, pid3],
+                            turnOrder=[self.pid1, pid2, pid3],
+                            isLobby=False)
 
-        # Check player state
-        player1 = state['players'][self.pid1]
-        self.assertEqual(player1['name'], self.username1)
-        self.assertEqual(player1['word'], self.word1)
-        self.assertTrue(player1['ready'])
-        self.assertTrue(player1['alive'])
+        # Check player states
+        zipped = zip([self.pid1, pid2, pid3], self.usernames, self.words)
+        for pid, name, word in zipped:
+            player_state = session_state['players'][pid]
+            check_player_state(self, player_state,
+                               pid=pid, name=name,
+                               word=word, ready=True)
 
-        player2 = state['players'][pid2]
-        self.assertEqual(player2['name'], self.username2)
-        self.assertEqual(player2['word'], self.word2)
-        self.assertTrue(player2['ready'])
-        self.assertTrue(player2['alive'])
+class TestGuessWord(unittest.TestCase):
 
-        player3 = state['players'][pid3]
-        self.assertEqual(player3['name'], self.username3)
-        self.assertEqual(player3['word'], self.word3)
-        self.assertTrue(player3['ready'])
-        self.assertTrue(player3['alive'])
+    def test_guess_letter_single_turn(self):
+        pass
 
 
 if __name__ == '__main__':
     unittest.main()
 
-# # Check player join functionality
-# sid = requests.post("http://localhost:3000/new-session")
-# print("new-session:", sid.text)
-
-# pid = requests.post("http://localhost:3000/join-session", json={'sid': sid.text, 'name': 'joji'})
-# print("join-session:", pid.text)
 
 

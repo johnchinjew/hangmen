@@ -74,10 +74,15 @@ export function Session() {
     const allReady = Object.values(this.players).reduce((a, p) => a && p.isReady() , true)
     if (allReady) {
       // Starting game process
-      this.turnOrder = Object.keys(this.players)  // assumes a list is returned 
-      shuffle(this.turnOrder)
-      this.isLobby = false
+      this._start()
     }
+  }
+
+  this._start = function () {
+    // Randomly generate turn order using keys in player map
+    this.turnOrder = Object.keys(this.players)  // assumes a list is returned 
+    shuffle(this.turnOrder)
+    this.isLobby = false
   }
 
   this.guessLetter = function(letter) {
@@ -94,12 +99,13 @@ export function Session() {
       }            
     }
 
-    if (checkGameOver()) {
-      progressTurn()
+    if (this._checkGameOver()) {
+      // Increment turn
+      this._progressTurn()
     }
   }
 
-  const currentPlayer = function() {
+  this._currentPlayer = function() {
     return this.players[this.turnOrder[0]]
   }
 
@@ -108,19 +114,20 @@ export function Session() {
       return
 
     const target = this.players[pid]
-    const guesser = currentPlayer()
+    const guesser = this._currentPlayer()
     
     if (word === target.getWord()) 
       killPlayer(target.getId())
     else
       killPlayer(guesser.getId())
 
-    if (checkGameOver()) {
-      progressTurn()
+    if (this._checkGameOver()) {
+      // Increment turn
+      this._progressTurn()
     }
   }
 
-  const checkGameOver = function() {
+  this._checkGameOver = function() {
     let gameOver = true
     for (const pid of this.players) {
       const player = this.players[pid]
@@ -130,7 +137,7 @@ export function Session() {
     return gameOver
   }
 
-  const progressTurn = function() {    
+  this._progressTurn = function() {    
     // Let's hope this works
     const top = this.turnOrder.splice(0, 1)[0]
     this.turnOrder.push(top)

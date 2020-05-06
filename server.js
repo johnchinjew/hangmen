@@ -35,6 +35,7 @@ server.post('/join-session', (req, res) => {
   const session = sessionManager.getSession(sid)
   
   if (!session) {
+    console.log('Requested session does not exist.')
     res.end()
     return
   }
@@ -58,6 +59,7 @@ server.post('/get-state', (req, res) => {
   const session = sessionManager.getSession(sid)
   
   if (!session) {
+    console.log('Requested session does not exist.')
     res.end()
     return
   }
@@ -80,10 +82,13 @@ server.post('/set-word', (req, res) => {
 
   const session = sessionManager.getSession(sid)
   
-  if (session) {
-    session.setPlayerWord(pid, word)
+  if (!session) {
+    console.log('Requested session does not exist.')
+    res.end()
+    return
   }
 
+  session.setPlayerWord(pid, word)
   res.end()
 })
 
@@ -101,10 +106,13 @@ server.post('/guess-letter', (req, res) => {
 
   const session = sessionManager.getSession(sid)
 
-  if (session) {
-    session.guessLetter(letter)
+  if (!session) {
+    console.log('Requested session does not exist.')
+    res.end()
+    return
   }
 
+  session.guessLetter(letter)
   res.end()
 })
 
@@ -122,10 +130,13 @@ server.post('/guess-word', (req, res) => {
 
   const session = sessionManager.getSession(sid)
   
-  if (session) {
-    session.guessWord(pid, word)
+  if (!session) {
+    console.log('Requested session does not exist.')
+    res.end()
+    return
   }
 
+  session.guessWord(pid, word)
   res.end()
 })
 
@@ -147,10 +158,13 @@ server.post('/exit-session', (req, res) => {
 
   const session = sessionManager.getSession(sid)
 
-  if (session) {
-    session.removePlayer(pid)
+  if (!session) {
+    console.log('Requested session does not exist.')
+    res.end()
+    return
   }
-
+  
+  session.removePlayer(pid)
   res.end()
 })
 
@@ -172,10 +186,13 @@ server.post('/reset-session', (req, res) => {
 
   const session = sessionManager.getSession(sid)
 
-  if (session) {
-    session.reset()
+  if (!session) {
+    console.log('Requested session does not exist.')
+    res.end()
+    return
   }
 
+  session.reset()
   res.end()
 })
 

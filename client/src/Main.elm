@@ -7,8 +7,7 @@ import Html
 import Html.Events as Events
 import Http
 import Json.Encode as Encode
-import Json.Decode as Decode
-import String
+import State exposing (..)
 import Url exposing (Url)
 import Url.Builder
 import Url.Parser exposing ((<?>), Parser)
@@ -41,7 +40,7 @@ type alias Model =
     , sid : String
     , pid : String
     , name : String
-    , state : List String
+    , state : SessionState
     }
 
 
@@ -99,13 +98,14 @@ init _ url _ =
                     "<NULL_SID>"
       , pid = "<NULL_PID>"
       , name = ""
-      , state = []
-    --     { sid = ""
-    --     , players = Dict.fromList []
-    --     , turnOrder = []
-    --     , alphabet = Dict.fromList []
-    --     , isLobby = True
-    --     }
+      , state = 
+        { sid = ""
+        , players = Dict.fromList []
+        , turnOrder = []
+        , alphabet =
+            { letters = Dict.fromList [] }
+        , isLobby = True
+        }
       }
     , Cmd.none
     )
@@ -129,10 +129,10 @@ type Msg
     = NoOp
     | PostNewSession
     | PostJoinSession String
-    | PostGetSession
+    | PostGetState
     | ReceivedSid (Result Http.Error String)
     | ReceivedPid (Result Http.Error String)
-    | ReceivedState (Result Http.Error (List String))
+    | ReceivedState (Result Http.Error (SessionState))
     | ChangeName String
 
 
@@ -164,13 +164,13 @@ update msg model =
                 }
             )
 
-        PostGetSession ->
+        PostGetState ->
             ( model
             , Http.post
-                { url = Url.Builder.relative [ "join-session" ] []
+                { url = Url.Builder.relative [ "get-state" ] []
                 , body = Http.jsonBody <| 
                     Encode.object [ ("sid", Encode.string model.sid) ]
-                , expect = Http.expectJson ReceivedState (Decode.list Decode.string)
+                , expect = Http.expectJson ReceivedState decodeSessionState
                 }
             )
 
@@ -193,7 +193,7 @@ update msg model =
                         { url = Url.Builder.relative [ "get-state" ] []
                         , body = Http.jsonBody <| 
                             Encode.object [ ("sid", Encode.string model.sid) ] 
-                        , expect = Http.expectJson ReceivedState (Decode.list Decode.string)
+                        , expect = Http.expectJson ReceivedState decodeSessionState
                         }
                     )
 
@@ -254,9 +254,6 @@ view model =
             }
 
         RenderSession ->
-            let 
-                state = String.join "" model.state
-            in
             { title = "ㅎ Hangmen ㅎ"
             , body = 
                 [ Html.p [] 
@@ -268,7 +265,7 @@ view model =
                             ++ " | name: "
                             ++ model.name
                             ++ " | state: " 
-                            ++ state
+                            ++ sessionStateToString model.state
                     ]
 
                 ]
@@ -281,37 +278,6 @@ view model =
                 ]
             }
 
-type alias PlayerState = 
-    { pid : String
-    , name : String
-    , word : String
-    , ready : Bool
-    , alive : Bool
-    }
 
-type alias SessionState = 
-    { sid : String
-    , players : Dict String PlayerState
-    , turnOrder : List Int
-    , alphabet : Dict Char Bool
-    , isLobby : Bool
-    }
-
--- playerStateDecoder : Decode.Decoder PlayerState
--- playerStateDecoder = 
---     Decode.map5 PlayerState
---         (Decode.field "id" Decode.string)
---         (Decode.field "name" Decode.string)
---         (Decode.field "word" Decode.string)
---         (Decode.field "ready" Decode.bool)
---         (Decode.field "alive" Decode.bool)
-
--- sessionStateDecoder : Decode.Decoder SessionState
--- sessionStateDecoder = 
---     Decode.map5 SessionState
---         (Decode.field "id" Decode.string)
---         (Decode.field "players" Decode.dict Decode.string playerStateDecoder)
---         (Decode.field "turnOrder" Decode.list Decode.int)
---         (Decode.field "alphabet" Decode.dict )
 
 

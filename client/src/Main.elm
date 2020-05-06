@@ -1,10 +1,15 @@
 module Main exposing (..)
 
 import Browser
+import Browser.Navigation as Navigation
 import Html exposing (Html)
 import Html.Events as Events
 import Http
 import Json.Encode as Encode
+import Url exposing (Url)
+import Url.Builder
+import Url.Parser exposing ((<?>), Parser)
+import Url.Parser.Query
 
 
 
@@ -12,8 +17,10 @@ import Json.Encode as Encode
 
 
 main =
-    Browser.element
+    Browser.application
         { init = init
+        , onUrlChange = \_ -> NoOp
+        , onUrlRequest = \_ -> NoOp
         , update = update
         , view = view
         , subscriptions = \_ -> Sub.none
@@ -25,135 +32,144 @@ main =
 
 
 type alias Model =
-    ()
+    { screen : Screen
+    , route : Maybe Route
+    , alert : Maybe String
+    }
 
 
-init : () -> ( Model, Cmd Msg )
-init _ =
-    ( (), Cmd.none )
+type Screen
+    = WelcomeMenu
+    | ExistingSession String
+    | Error
+
+
+type Route
+    = Root (Maybe String)
+
+
+routeParser : Parser (Route -> a) a
+routeParser =
+    Url.Parser.oneOf
+        [ Url.Parser.map
+            Root
+            (Url.Parser.top <?> Url.Parser.Query.string "sid")
+        ]
+
+
+init : () -> Url -> Navigation.Key -> ( Model, Cmd Msg )
+init _ url _ =
+    let
+        route =
+            Url.Parser.parse routeParser url
+    in
+    ( { screen =
+            case route of
+                Just (Root maybeSid) ->
+                    case maybeSid of
+                        Just sid ->
+                            ExistingSession sid
+
+                        Nothing ->
+                            WelcomeMenu
+
+                Nothing ->
+                    Error
+      , route = route
+      , alert = Nothing
+      }
+    , Cmd.none
+    )
 
 
 
+-- -- ONURLCHANGE
+--
+-- onUrlChange : Url -> (Model, Cmd Msg)
+-- onUrlChange url =
+--     ( { sid = sid
+--       , route = route
+--       , alert = Nothing
+--       }
+--     , Cmd.none
+--     )
 -- UPDATE
 
 
 type Msg
-    = DiscardString String
-    | ReceivedString (Result Http.Error String)
+    = NoOp
     | PostNewSession
-    | PostJoinSession
-    | PostResetSession
-    | PostGetState
-    | PostSetWord
-    | PostGuessLetter
-    | PostGuessWord
+    | ReceivedSid (Result Http.Error String)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        DiscardString _ ->
+        NoOp ->
             ( model, Cmd.none )
-
-        ReceivedString response ->
-            case response of
-                Ok string ->
-                    update (DiscardString (Debug.log "Received" string)) model
-
-                Err err ->
-                    ( model, Cmd.none )
 
         PostNewSession ->
             ( model
             , Http.post
-                { url = "http://localhost:3000/new-session"
+                { url = Url.Builder.relative [ "new-session" ] []
                 , body = Http.emptyBody
-                , expect = Http.expectString ReceivedString
+                , expect = Http.expectString ReceivedSid
                 }
             )
 
-        PostResetSession ->
-            ( model
-            , Http.post
-                { url = "http://localhost:3000/reset-session"
-                , body = Http.emptyBody
-                , expect = Http.expectString ReceivedString
-                }
-            )
+        ReceivedSid response ->
+            case response of
+                Ok sid ->
+                    ( model
+                    , Navigation.load <|
+                        Url.Builder.relative [] [ Url.Builder.string "sid" sid ]
+                    )
 
-        PostJoinSession ->
-            let
-                body : Encode.Value
-                body =
-                    Encode.object
-                        [ ( "sid", Encode.string "be6a285d-6342-4964-b190-13c5a3d1fd44" )
-                        , ( "name", Encode.string "Phineas" )
-                        ]
-            in
-            ( model
-            , Http.post
-                { url = "http://localhost:3000/join-session"
-                , body = Http.jsonBody body
-                , expect = Http.expectString ReceivedString
-                }
-            )
-
-        PostGetState ->
-            let
-                body : Encode.Value
-                body =
-                    Encode.object
-                        [ ( "sid", Encode.string "be6a285d-6342-4964-b190-13c5a3d1fd44" )
-                        ]
-            in
-            ( model
-            , Http.post
-                { url = "http://localhost:3000/get-state"
-                , body = Http.jsonBody body
-                , expect = Http.expectString ReceivedString
-                }
-            )
-
-        PostSetWord ->
-            ( model
-            , Http.post
-                { url = "http://localhost:3000/set-word"
-                , body = Http.emptyBody
-                , expect = Http.expectString ReceivedString
-                }
-            )
-
-        PostGuessLetter ->
-            ( model
-            , Http.post
-                { url = "http://localhost:3000/guess-letter"
-                , body = Http.emptyBody
-                , expect = Http.expectString ReceivedString
-                }
-            )
-
-        PostGuessWord ->
-            ( model
-            , Http.post
-                { url = "http://localhost:3000/guess-word"
-                , body = Http.emptyBody
-                , expect = Http.expectString ReceivedString
-                }
-            )
+                Err _ ->
+                    ( { model | alert = Just "Failed to create session." }, Cmd.none )
 
 
 
 -- VIEW
 
 
-view : Model -> Html Msg
+view : Model -> Browser.Document Msg
 view model =
-    Html.ul []
-        [ Html.li [] [ Html.button [ Events.onClick PostNewSession ] [ Html.text "POST: new-session" ] ]
-        , Html.li [] [ Html.button [ Events.onClick PostResetSession ] [ Html.text "POST: reset-session" ] ]
-        , Html.li [] [ Html.button [ Events.onClick PostJoinSession ] [ Html.text "POST: join-session" ] ]
-        , Html.li [] [ Html.button [ Events.onClick PostGetState ] [ Html.text "POST: get-state" ] ]
-        , Html.li [] [ Html.button [ Events.onClick PostSetWord ] [ Html.text "POST: set-word" ] ]
-        , Html.li [] [ Html.button [ Events.onClick PostGuessLetter ] [ Html.text "POST: guess-letter" ] ]
-        , Html.li [] [ Html.button [ Events.onClick PostGuessWord ] [ Html.text "POST: guess-word" ] ]
-        ]
+    case model.screen of
+        WelcomeMenu ->
+            let
+                maybeErrorMsg =
+                    case model.alert of
+                        Just msg ->
+                            [ Html.h2 [] [ Html.text msg ] ]
+
+                        Nothing ->
+                            []
+            in
+            { title = "ㅎ Hangmen ㅎ"
+            , body =
+                maybeErrorMsg
+                    ++ [ Html.h1 [] [ Html.text "ㅎ Hangmen ㅎ" ]
+                       , Html.button
+                            [ Events.onClick PostNewSession ]
+                            [ Html.text "Create Game" ]
+                       ]
+            }
+
+        ExistingSession sid ->
+            { title = "ㅎ Hangmen ㅎ"
+            , body =
+                [ Html.p []
+                    [ Html.text <|
+                        "Route: Existing Session with sid: "
+                            ++ sid
+                    ]
+                ]
+            }
+
+        Error ->
+            { title = "ㅎ Hangmen ㅎ"
+            , body =
+                [ Html.h1 [] [ Html.text "404" ]
+                ]
+            }

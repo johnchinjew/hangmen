@@ -198,7 +198,7 @@ update msg model =
                     )
 
                 Err _ ->
-                    ( { model | alert = Just "Unable to join session." }, Cmd.none )
+                    ( { model | alert = Just "Failed to join session." }, Cmd.none )
 
         ReceivedState response ->
             case response of 

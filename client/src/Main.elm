@@ -1,5 +1,6 @@
 module Main exposing (..)
 
+import Api
 import Browser
 import Browser.Navigation as Navigation
 import Debug
@@ -47,7 +48,7 @@ type alias Model =
     , word : String
     , ready : Bool
     , alive : Bool
-    , stateCache : SessionState
+    , sessionState : SessionState
     , polling : Bool
     }
 
@@ -100,7 +101,7 @@ init _ url _ =
       , word = "<NULL_WORD>"
       , ready = False
       , alive = True
-      , stateCache =
+      , sessionState =
             { sid = "<NULL_SID>"
             , players = Dict.fromList []
             , turnOrder = []
@@ -120,14 +121,14 @@ init _ url _ =
 
 type Msg
     = NoOp
-    | PostNewSession
-    | PostJoinSession
-    | PostGetState
-    | PostSetWord
-    | ReceivedSid (Result Http.Error String)
-    | ReceivedPid (Result Http.Error String)
-    | ReceivedState (Result Http.Error SessionState)
-    | SetWord (Result Http.Error ())
+    | ClickedCreateGame
+    | ClickedJoinGame
+    | ClickedSetWord
+    | PollTick
+    | ReceivedWhatever (Result Http.Error ())
+    | ReceivedSessionId (Result Http.Error String)
+    | ReceivedPlayerId (Result Http.Error String)
+    | ReceivedSessionState (Result Http.Error SessionState)
     | ChangeName String
     | ChangeWord String
 
@@ -138,57 +139,29 @@ update msg model =
         NoOp ->
             ( model, Cmd.none )
 
-        PostNewSession ->
+        ClickedCreateGame ->
             ( model
-            , Http.post
-                { url = Url.Builder.relative [ "new-session" ] []
-                , body = Http.emptyBody
-                , expect = Http.expectString ReceivedSid
-                }
+            , Api.postNewSession ReceivedSessionId
             )
 
-        PostJoinSession ->
+        ClickedJoinGame ->
             ( { model | screen = LoadingMenu, polling = True }
-            , Http.post
-                { url = Url.Builder.relative [ "join-session" ] []
-                , body =
-                    Http.jsonBody <|
-                        Encode.object
-                            [ ( "sid", Encode.string model.sid )
-                            , ( "name", Encode.string model.name )
-                            ]
-                , expect = Http.expectString ReceivedPid
-                }
+            , Api.postJoinSession { sid = model.sid, name = model.name } ReceivedPlayerId
             )
 
-        PostGetState ->
-            ( model
-            , Http.post
-                { url = Url.Builder.relative [ "get-state" ] []
-                , body =
-                    Http.jsonBody <|
-                        Encode.object [ ( "sid", Encode.string model.sid ) ]
-                , expect = Http.expectJson ReceivedState decodeSessionState
-                }
-            )
-
-        PostSetWord ->
+        ClickedSetWord ->
             ( { model | ready = True }
-            , Http.post
-                { url = Url.Builder.relative [ "set-word" ] []
-                , body =
-                    Http.jsonBody <|
-                        Encode.object
-                            [ ( "sid", Encode.string model.sid )
-                            , ( "pid", Encode.string model.pid )
-                            , ( "word", Encode.string model.word )
-                            ]
-                , expect = Http.expectWhatever SetWord
-                }
+            , Api.postSetWord { sid = model.sid, pid = model.pid, word = model.word } ReceivedWhatever
             )
 
-        ReceivedSid response ->
-            case response of
+        PollTick ->
+            ( model, Api.postGetState { sid = model.sid } ReceivedSessionState )
+
+        ReceivedWhatever _ ->
+            update NoOp model
+
+        ReceivedSessionId result ->
+            case result of
                 Ok sid ->
                     ( model
                     , Navigation.load <|
@@ -198,8 +171,8 @@ update msg model =
                 Err _ ->
                     ( { model | alert = Just "Failed to create session." }, Cmd.none )
 
-        ReceivedPid response ->
-            case response of
+        ReceivedPlayerId result ->
+            case result of
                 Ok pid ->
                     ( { model | pid = pid, screen = LoadingMenu, polling = True }
                     , Cmd.none
@@ -208,8 +181,8 @@ update msg model =
                 Err _ ->
                     ( { model | alert = Just "Failed to join session." }, Cmd.none )
 
-        ReceivedState response ->
-            case response of
+        ReceivedSessionState result ->
+            case result of
                 Ok state ->
                     ( { model
                         | screen =
@@ -218,16 +191,13 @@ update msg model =
 
                             else
                                 ActiveGame
-                        , stateCache = state
+                        , sessionState = state
                       }
                     , Cmd.none
                     )
 
                 Err _ ->
                     ( { model | alert = Just "Failed to get session state." }, Cmd.none )
-
-        SetWord _ ->
-            ( model, Cmd.none )
 
         ChangeName name ->
             ( { model | name = name }, Cmd.none )
@@ -242,13 +212,13 @@ update msg model =
 
 pollInterval : Float
 pollInterval =
-    1000
+    1500
 
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
     if model.polling then
-        Time.every pollInterval (\_ -> PostGetState)
+        Time.every pollInterval (\_ -> PollTick)
 
     else
         Sub.none
@@ -276,7 +246,7 @@ view model =
                 maybeErrorMsg
                     ++ [ Html.h1 [] [ Html.text "Hangmen" ]
                        , Html.button
-                            [ Events.onClick PostNewSession ]
+                            [ Events.onClick ClickedCreateGame ]
                             [ Html.text "Create Game" ]
                        ]
 
@@ -284,19 +254,19 @@ view model =
                 [ Html.text "Choose name: "
                 , Html.input [ Events.onInput ChangeName ] []
                 , Html.button
-                    [ Events.onClick PostJoinSession ]
+                    [ Events.onClick ClickedJoinGame ]
                     [ Html.text "Join Game" ]
                 ]
 
             LoadingMenu ->
                 [ Html.h2
                     []
-                    [ Html.text "Joining game..." ]
+                    [ Html.text "Joining..." ]
                 ]
 
             LobbyMenu ->
                 [ Html.h2 []
-                    [ Html.text "Game Lobby" ]
+                    [ Html.text "Lobby" ]
                 , Html.h3 []
                     [ Html.text "Players:" ]
                 , Html.ul []
@@ -315,20 +285,18 @@ view model =
                                 ]
                         )
                      <|
-                        Dict.values model.stateCache.players
+                        Dict.values model.sessionState.players
                     )
                 , Html.p []
                     [ Html.text "Choose word:"
                     , Html.input
                         [ Events.onInput ChangeWord
-                        , Attributes.disabled model.ready
                         ]
                         []
                     , Html.button
-                        [ Events.onClick PostSetWord
-                        , Attributes.disabled model.ready
+                        [ Events.onClick ClickedSetWord
                         ]
-                        [ Html.text "Ready" ]
+                        [ Html.text "Start game" ]
                     ]
                 ]
 

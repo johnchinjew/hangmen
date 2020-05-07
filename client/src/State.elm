@@ -22,6 +22,8 @@ type alias SessionState =
     , isLobby : Bool
     }
 
+-- DECODERS
+
 decodeAlphabetState : Decode.Decoder AlphabetState
 decodeAlphabetState = 
     Decode.map AlphabetState
@@ -44,6 +46,9 @@ decodeSessionState =
         (Decode.field "turnOrder" <| Decode.list Decode.string)
         (Decode.field "alphabet" decodeAlphabetState)
         (Decode.field "isLobby" Decode.bool)
+
+
+-- STRING CONVERTERS (FOR DEBUGGING)
 
 alphabetStateToString : AlphabetState -> String
 alphabetStateToString alphabet = 

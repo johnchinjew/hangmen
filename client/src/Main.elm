@@ -5,16 +5,15 @@ import Browser.Navigation as Navigation
 import Debug
 import Dict exposing (Dict)
 import Html
-import Html.Events as Events
 import Html.Attributes as Attributes
+import Html.Events as Events
 import Http
 import Json.Encode as Encode
+import Route exposing (Route)
 import State exposing (..)
 import Time
 import Url exposing (Url)
 import Url.Builder
-import Url.Parser exposing ((<?>), Parser)
-import Url.Parser.Query
 
 
 
@@ -38,12 +37,13 @@ main =
 
 type alias Model =
     { screen : Screen
-    , route : Maybe Route
+    , route : Route
     , alert : Maybe String
-    , sid : String
+    , sid : Route.SessionId
+
     -- , player : PlayerState
     , pid : String
-    , name : String 
+    , name : String
     , word : String
     , ready : Bool
     , alive : Bool
@@ -54,34 +54,22 @@ type alias Model =
 
 type Screen
     = WelcomeMenu
-    | JoinMenu 
+    | JoinMenu
     | LoadingMenu
     | LobbyMenu
     | ActiveGame
     | Error
-
-type Route
-    = Root (Maybe String)
-
-
-routeParser : Parser (Route -> a) a
-routeParser =
-    Url.Parser.oneOf
-        [ Url.Parser.map
-            Root
-            (Url.Parser.top <?> Url.Parser.Query.string "sid")
-        ]
 
 
 init : () -> Url -> Navigation.Key -> ( Model, Cmd Msg )
 init _ url _ =
     let
         route =
-            Url.Parser.parse routeParser url
+            Route.parse url
     in
     ( { screen =
             case route of
-                Just (Root maybeSid) ->
+                Route.Root maybeSid ->
                     case maybeSid of
                         Just sid ->
                             JoinMenu
@@ -89,36 +77,37 @@ init _ url _ =
                         Nothing ->
                             WelcomeMenu
 
-                Nothing ->
+                Route.Invalid ->
                     Error
       , route = route
       , alert = Nothing
-      , sid = 
+      , sid =
             case route of
-                Just (Root maybeSid) ->
-                    case maybeSid of 
-                        Just sid -> 
+                Route.Root maybeSid ->
+                    case maybeSid of
+                        Just sid ->
                             sid
-                    
-                        Nothing -> 
+
+                        Nothing ->
                             "<NULL_SID>"
-                
-                Nothing ->
+
+                Route.Invalid ->
                     "<NULL_SID>"
-    --   , player = 
+
+      --   , player =
       , pid = "<NULL_PID>"
       , name = "<NULL_NAME>"
       , word = "<NULL_WORD>"
       , ready = False
       , alive = True
-      , stateCache = 
-        { sid = "<NULL_SID>"
-        , players = Dict.fromList []
-        , turnOrder = []
-        , alphabet = 
-            { letters = Dict.fromList [] }
-        , isLobby = True
-        }
+      , stateCache =
+            { sid = "<NULL_SID>"
+            , players = Dict.fromList []
+            , turnOrder = []
+            , alphabet =
+                { letters = Dict.fromList [] }
+            , isLobby = True
+            }
       , polling = False
       }
     , Cmd.none
@@ -126,28 +115,18 @@ init _ url _ =
 
 
 
--- -- ONURLCHANGE
---
--- onUrlChange : Url -> (Model, Cmd Msg)
--- onUrlChange url =
---     ( { sid = sid
---       , route = route
---       , alert = Nothing
---       }
---     , Cmd.none
---     )
 -- UPDATE
 
 
 type Msg
     = NoOp
     | PostNewSession
-    | PostJoinSession 
+    | PostJoinSession
     | PostGetState
     | PostSetWord
     | ReceivedSid (Result Http.Error String)
     | ReceivedPid (Result Http.Error String)
-    | ReceivedState (Result Http.Error (SessionState))
+    | ReceivedState (Result Http.Error SessionState)
     | SetWord (Result Http.Error ())
     | ChangeName String
     | ChangeWord String
@@ -172,12 +151,13 @@ update msg model =
             ( { model | screen = LoadingMenu, polling = True }
             , Http.post
                 { url = Url.Builder.relative [ "join-session" ] []
-                , body = Http.jsonBody <| 
-                    Encode.object
-                        [ ("sid", Encode.string model.sid)
-                        , ("name", Encode.string model.name)
-                        ]
-                , expect = Http.expectString ReceivedPid 
+                , body =
+                    Http.jsonBody <|
+                        Encode.object
+                            [ ( "sid", Encode.string model.sid )
+                            , ( "name", Encode.string model.name )
+                            ]
+                , expect = Http.expectString ReceivedPid
                 }
             )
 
@@ -185,23 +165,24 @@ update msg model =
             ( model
             , Http.post
                 { url = Url.Builder.relative [ "get-state" ] []
-                , body = Http.jsonBody <| 
-                    Encode.object [ ("sid", Encode.string model.sid) ]
+                , body =
+                    Http.jsonBody <|
+                        Encode.object [ ( "sid", Encode.string model.sid ) ]
                 , expect = Http.expectJson ReceivedState decodeSessionState
                 }
             )
 
         PostSetWord ->
-            
             ( { model | ready = True }
             , Http.post
                 { url = Url.Builder.relative [ "set-word" ] []
-                , body = Http.jsonBody <| 
-                    Encode.object 
-                    [ ("sid", Encode.string model.sid) 
-                    , ("pid", Encode.string model.pid)
-                    , ("word", Encode.string model.word)
-                    ]
+                , body =
+                    Http.jsonBody <|
+                        Encode.object
+                            [ ( "sid", Encode.string model.sid )
+                            , ( "pid", Encode.string model.pid )
+                            , ( "word", Encode.string model.word )
+                            ]
                 , expect = Http.expectWhatever SetWord
                 }
             )
@@ -216,7 +197,7 @@ update msg model =
 
                 Err _ ->
                     ( { model | alert = Just "Failed to create session." }, Cmd.none )
-        
+
         ReceivedPid response ->
             case response of
                 Ok pid ->
@@ -228,17 +209,22 @@ update msg model =
                     ( { model | alert = Just "Failed to join session." }, Cmd.none )
 
         ReceivedState response ->
-            case response of 
-                Ok state -> 
-                    ( { model 
-                      | screen = if state.isLobby then LobbyMenu else ActiveGame
-                      , stateCache = state
+            case response of
+                Ok state ->
+                    ( { model
+                        | screen =
+                            if state.isLobby then
+                                LobbyMenu
+
+                            else
+                                ActiveGame
+                        , stateCache = state
                       }
                     , Cmd.none
                     )
 
                 Err _ ->
-                    ( { model | alert = Just "Failed to get session state."}, Cmd.none )
+                    ( { model | alert = Just "Failed to get session state." }, Cmd.none )
 
         SetWord _ ->
             ( model, Cmd.none )
@@ -247,7 +233,7 @@ update msg model =
             ( { model | name = name }, Cmd.none )
 
         ChangeWord word ->
-            ( { model | word = String.toLower word }, Cmd.none ) 
+            ( { model | word = String.toLower word }, Cmd.none )
 
 
 
@@ -256,8 +242,9 @@ update msg model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    if model.polling then 
+    if model.polling then
         Time.every 1000 (\_ -> PostGetState)
+
     else
         Sub.none
 
@@ -285,61 +272,66 @@ view model =
                     ++ [ Html.h1 [] [ Html.text "ㅎ Hangmen ㅎ" ]
                        , Html.button
                             [ Events.onClick PostNewSession ]
-                            [ Html.text "Create Session" ]
+                            [ Html.text "Create Game" ]
                        ]
             }
-        
+
         JoinMenu ->
             { title = "ㅎ Hangmen ㅎ"
-            , body = 
-                [ Html.p [] 
-                    [ Html.text "Choose name:" 
-                    , Html.input [ Events.onInput ChangeName ] []
-                    , Html.button 
-                        [ Events.onClick PostJoinSession ]
-                        [ Html.text "Join Session" ]
-                    ]
+            , body =
+                [ Html.text "Choose name: "
+                , Html.input [ Events.onInput ChangeName ] []
+                , Html.button
+                    [ Events.onClick PostJoinSession ]
+                    [ Html.text "Join Game" ]
                 ]
             }
 
         LoadingMenu ->
             { title = "ㅎ Hangmen ㅎ"
-            , body = 
-                [ Html.h2 
-                    [] 
+            , body =
+                [ Html.h2
+                    []
                     [ Html.text "Joining game..." ]
                 ]
             }
 
         LobbyMenu ->
             { title = "ㅎ Hangmen ㅎ"
-            , body = 
+            , body =
                 [ Html.h2 []
                     [ Html.text "Game Lobby" ]
                 , Html.h3 []
                     [ Html.text "Players:" ]
-                , Html.ul [] 
-                        ( List.map 
-                            ( \player ->
-                                Html.li [] 
-                                    [ Html.text <| 
-                                        player.name 
-                                        ++ ": " 
-                                        ++ if player.ready then "Ready" 
-                                           else "Not Ready" 
-                                    ] 
-                            )
-                            <| Dict.values model.stateCache.players
+                , Html.ul []
+                    (List.map
+                        (\player ->
+                            Html.li []
+                                [ Html.text <|
+                                    player.name
+                                        ++ ": "
+                                        ++ (if player.ready then
+                                                "Ready"
+
+                                            else
+                                                "Not Ready"
+                                           )
+                                ]
                         )
+                     <|
+                        Dict.values model.stateCache.players
+                    )
                 , Html.p []
                     [ Html.text "Choose word:"
-                    , Html.input 
-                        [ Events.onInput ChangeWord 
-                        , Attributes.disabled model.ready ] 
+                    , Html.input
+                        [ Events.onInput ChangeWord
+                        , Attributes.disabled model.ready
+                        ]
                         []
-                    , Html.button 
+                    , Html.button
                         [ Events.onClick PostSetWord
-                        , Attributes.disabled model.ready ]
+                        , Attributes.disabled model.ready
+                        ]
                         [ Html.text "Ready" ]
                     ]
                 ]
@@ -360,17 +352,17 @@ view model =
                 ]
             }
 
+
 renderSession : String -> SessionState -> Browser.Document Msg
 renderSession name state =
     { title = "ㅎ Hangmen ㅎ"
-    , body = 
-        [ Html.p [] 
-            [ Html.text <| 
-                "name: " 
-                ++ name 
-                ++ " | state: " 
-                ++ sessionStateToString state
+    , body =
+        [ Html.p []
+            [ Html.text <|
+                "name: "
+                    ++ name
+                    ++ " | state: "
+                    ++ sessionStateToString state
             ]
         ]
     }
-

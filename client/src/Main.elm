@@ -47,7 +47,7 @@ type alias Model =
     , word : String
     , ready : Bool
     , alive : Bool
-    , stateCache : Maybe SessionState
+    , stateCache : SessionState
     , polling : Bool
     }
 
@@ -111,8 +111,14 @@ init _ url _ =
       , word = "<NULL_WORD>"
       , ready = False
       , alive = True
-            -- }
-      , stateCache = Nothing
+      , stateCache = 
+        { sid = "<NULL_SID>"
+        , players = Dict.fromList []
+        , turnOrder = []
+        , alphabet = 
+            { letters = Dict.fromList [] }
+        , isLobby = True
+        }
       , polling = False
       }
     , Cmd.none
@@ -226,7 +232,7 @@ update msg model =
                 Ok state -> 
                     ( { model 
                       | screen = if state.isLobby then LobbyMenu else ActiveGame
-                      , stateCache = Just state 
+                      , stateCache = state
                       }
                     , Cmd.none
                     )
@@ -299,7 +305,7 @@ view model =
         LoadingMenu ->
             { title = "ㅎ Hangmen ㅎ"
             , body = 
-                [ Html.p 
+                [ Html.h2 
                     [] 
                     [ Html.text "Joining game..." ]
                 ]
@@ -310,29 +316,21 @@ view model =
             , body = 
                 [ Html.h2 []
                     [ Html.text "Game Lobby" ]
-                , Html.p [] 
-                    [ Html.ul [] 
+                , Html.h3 []
+                    [ Html.text "Players:" ]
+                , Html.ul [] 
                         ( List.map 
-                            (\player ->
-                                Html.li 
-                                    [] 
+                            ( \player ->
+                                Html.li [] 
                                     [ Html.text <| 
                                         player.name 
-                                            ++ ": " 
-                                            ++ 
-                                                if player.ready then 
-                                                    "Ready" 
-                                                else 
-                                                    "Not Ready" 
+                                        ++ ": " 
+                                        ++ if player.ready then "Ready" 
+                                           else "Not Ready" 
                                     ] 
                             )
-                            <| Dict.values 
-                                (case model.stateCache of 
-                                    Just state -> state.players
-                                    Nothing -> Debug.todo "Blah"
-                                )
+                            <| Dict.values model.stateCache.players
                         )
-                    ]
                 , Html.p []
                     [ Html.text "Choose word:"
                     , Html.input 

@@ -58,7 +58,7 @@ type Screen
     | LoadingMenu
     | LobbyMenu
     | ActiveGame
-    | Error
+    | InvalidScreen
 
 
 init : () -> Url -> Navigation.Key -> ( Model, Cmd Msg )
@@ -78,7 +78,7 @@ init _ url _ =
                             WelcomeMenu
 
                 Route.Invalid ->
-                    Error
+                    InvalidScreen
       , route = route
       , alert = Nothing
       , sid =
@@ -240,10 +240,15 @@ update msg model =
 -- SUBSCRIPTION
 
 
+pollInterval : Float
+pollInterval =
+    1000
+
+
 subscriptions : Model -> Sub Msg
 subscriptions model =
     if model.polling then
-        Time.every 1000 (\_ -> PostGetState)
+        Time.every pollInterval (\_ -> PostGetState)
 
     else
         Sub.none
@@ -255,50 +260,41 @@ subscriptions model =
 
 view : Model -> Browser.Document Msg
 view model =
-    case model.screen of
-        WelcomeMenu ->
-            let
-                maybeErrorMsg =
-                    case model.alert of
-                        Just msg ->
-                            [ Html.h2 [] [ Html.text msg ] ]
+    { title = "Hangmen"
+    , body =
+        case model.screen of
+            WelcomeMenu ->
+                let
+                    maybeErrorMsg =
+                        case model.alert of
+                            Just msg ->
+                                [ Html.h2 [] [ Html.text msg ] ]
 
-                        Nothing ->
-                            []
-            in
-            { title = "ㅎ Hangmen ㅎ"
-            , body =
+                            Nothing ->
+                                []
+                in
                 maybeErrorMsg
-                    ++ [ Html.h1 [] [ Html.text "ㅎ Hangmen ㅎ" ]
+                    ++ [ Html.h1 [] [ Html.text "Hangmen" ]
                        , Html.button
                             [ Events.onClick PostNewSession ]
                             [ Html.text "Create Game" ]
                        ]
-            }
 
-        JoinMenu ->
-            { title = "ㅎ Hangmen ㅎ"
-            , body =
+            JoinMenu ->
                 [ Html.text "Choose name: "
                 , Html.input [ Events.onInput ChangeName ] []
                 , Html.button
                     [ Events.onClick PostJoinSession ]
                     [ Html.text "Join Game" ]
                 ]
-            }
 
-        LoadingMenu ->
-            { title = "ㅎ Hangmen ㅎ"
-            , body =
+            LoadingMenu ->
                 [ Html.h2
                     []
                     [ Html.text "Joining game..." ]
                 ]
-            }
 
-        LobbyMenu ->
-            { title = "ㅎ Hangmen ㅎ"
-            , body =
+            LobbyMenu ->
                 [ Html.h2 []
                     [ Html.text "Game Lobby" ]
                 , Html.h3 []
@@ -335,27 +331,21 @@ view model =
                         [ Html.text "Ready" ]
                     ]
                 ]
-            }
 
-        ActiveGame ->
-            { title = "ㅎ Hangmen ㅎ"
-            , body =
-                [ Html.h1 [] [ Html.text "ㅎ Hangmen ㅎ" ]
+            ActiveGame ->
+                [ Html.h1 [] [ Html.text "Hangmen" ]
                 , Html.h2 [] [ Html.text "Active game screen" ]
                 ]
-            }
 
-        Error ->
-            { title = "ㅎ Hangmen ㅎ"
-            , body =
+            InvalidScreen ->
                 [ Html.h1 [] [ Html.text "404" ]
                 ]
-            }
+    }
 
 
 renderSession : String -> SessionState -> Browser.Document Msg
 renderSession name state =
-    { title = "ㅎ Hangmen ㅎ"
+    { title = "Hangmen"
     , body =
         [ Html.p []
             [ Html.text <|

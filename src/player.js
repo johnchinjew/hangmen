@@ -1,7 +1,7 @@
-import uuid from 'uuid'
+import { alphanumId } from './utility.js'
 
 export function Player(name) {
-  this.id = uuid.v4()
+  this.id = alphanumId()
   this.name = name
   this.word = ""
   this.ready = false

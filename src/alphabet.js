@@ -16,6 +16,6 @@ export function Alphabet() {
   }
 
   this.canSpell = function(word) {
-    return word.split('').reduce((a, c) => a && this.alreadyGuessed(c), true) 
+    return word.split('').reduce((a, c) => a && this.didSet(c), true) 
   }
 }

@@ -38,7 +38,7 @@ export function Session() {
     return newId
   }
 
-  const killPlayer = function(pid) {
+  this._killPlayer = function(pid) {
     this.players[pid].kill()
     const turn = this.turnOrder.indexOf(pid)
     if (turn > -1) {
@@ -52,7 +52,7 @@ export function Session() {
     }
 
     delete this.players[pid] 
-    killPlayer(pid)
+    this._killPlayer(pid)
   }
 
   this.setPlayerWord = function(pid, word) {
@@ -92,11 +92,10 @@ export function Session() {
     this.alphabet.set(letter)
     
     // With this newly guessed letter, some players may die
-    for (const pid of this.players) {
+    for (const pid in this.players) {
       const player = this.players[pid]
-      if (player.isAlive() && this.alphabet.canSpell(player.getWord())) {
-        killPlayer(pid)
-      }            
+      if (player.isAlive() && this.alphabet.canSpell(player.getWord()))
+        this._killPlayer(pid)
     }
 
     if (this._checkGameOver()) {
@@ -117,9 +116,9 @@ export function Session() {
     const guesser = this._currentPlayer()
     
     if (word === target.getWord()) 
-      killPlayer(target.getId())
+      this._killPlayer(target.getId())
     else
-      killPlayer(guesser.getId())
+      this._killPlayer(guesser.getId())
 
     if (this._checkGameOver()) {
       // Increment turn
@@ -129,7 +128,7 @@ export function Session() {
 
   this._checkGameOver = function() {
     let gameOver = true
-    for (const pid of this.players) {
+    for (const pid in this.players) {
       const player = this.players[pid]
       if (pid !== this.turnOrder[0] && player.isAlive())
         gameOver = false

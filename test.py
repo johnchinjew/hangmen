@@ -4,6 +4,50 @@ import unittest
 import time
 
 # Helper functions
+def new_session(test: unittest.TestCase):
+    return check_post(test, 'new-session')
+
+def join_session(test: unittest.TestCase,
+                 sid: str,
+                 name: str):
+    json = {'sid': sid, 'name': name}
+    return check_post(test, 'join-session', json=json)
+
+def get_state(test: unittest.TestCase,
+              sid: str):
+    json = {'sid': sid}
+    return check_post(test, 'get-state', json=json)
+
+def set_word(test: unittest.TestCase,
+             sid: str,
+             pid: str, 
+             word: str):
+    json = {'sid': sid, 'pid': pid, 'word': word}
+    return check_post(test, 'set-word', json=json)
+
+def guess_letter(test: unittest.TestCase,
+                 sid: str,
+                 letter: str):
+    json = {'sid': sid, 'letter': letter}
+    return check_post(test, 'guess-letter', json=json)
+
+def guess_word(test: unittest.TestCase,
+               sid: str,
+               pid: str,
+               word: str):
+    json = {'sid': sid, 'pid': pid, 'word': word}
+    return check_post(test, 'guess-word', json=json)
+
+def exit_session(test: unittest.TestCase,
+                 sid: str,
+                 pid: str):
+    json = {'sid': sid, 'pid': pid}
+    return check_post(test, 'exit-session', json=json)
+
+def reset_session(test: unittest.TestCase,
+                  sid: str):
+    json = {'sid': sid}
+    return check_post(test, 'reset-session', json=json)
 
 def check_post(test: unittest.TestCase,
                post_type: str,
@@ -101,13 +145,13 @@ class TestNewSession(unittest.TestCase):
     
     def test_create(self):
         # Create new session
-        sid = check_post(self, 'new-session')
+        sid = new_session(self)
 
         # Get session state
-        state = check_post(self, 'get-state', json={'sid': sid})
+        session_state = get_state(self, sid)
 
         # Check session state
-        check_session_state(self, state, sid)
+        check_session_state(self, session_state, sid)
 
 class TestJoinSession(unittest.TestCase):
 
@@ -116,7 +160,7 @@ class TestJoinSession(unittest.TestCase):
 
     def test_single_join_session(self):
         # Join created session
-        pid = check_post(self, 'join-session', {'sid': self.sid, 'name': 'uname'})
+        pid = join_session(self, self.sid, 'name')
 
         # Get session state
         session_state = check_post(self, 'get-state', {'sid': self.sid})
@@ -126,95 +170,114 @@ class TestJoinSession(unittest.TestCase):
 
         # Check player state
         player_state = session_state['players'][pid]
-        check_player_state(self, player_state, pid=pid, name='uname')
+        check_player_state(self, player_state, pid=pid, name='name')
 
     def test_multiple_join_session(self):
         # Join created session
-        pid1 = check_post(self, 'join-session', {'sid': self.sid, 'name': 'uname1'})
-        pid2 = check_post(self, 'join-session', {'sid': self.sid, 'name': 'uname2'})
+        pid1 = join_session(self, self.sid, 'name1')
+        pid2 = join_session(self, self.sid, 'name2')
 
         # Get session state
-        session_state = check_post(self, 'get-state', {'sid': self.sid})
+        session_state = get_state(self, self.sid)
 
         # Check session state
         check_session_state(self, session_state, sid=self.sid, players=[pid1, pid2])
         
         # Check player state
-        for pid, name in zip([pid1, pid2], ['uname1', 'uname2']):
+        for pid, name in zip([pid1, pid2], ['name1', 'name2']):
             player_state = session_state['players'][pid]
             check_player_state(self, player_state, pid=pid, name=name)
+
+    def test_join_active_session(self):
+
+        # Create active session
+        pids = [None] * 3
+        names = ['name1', 'name2', 'name3']
+        words = ['word1', 'word2', '']
+        readies = [True, True, False]
+        pids[0] = join_session(self, self.sid, names[0])
+        pids[1] = join_session(self, self.sid, names[1])
+        set_word(self, self.sid, pids[0], words[0])
+        set_word(self, self.sid, pids[1], words[1])
+
+        time.sleep(0.05)
+
+        # Session now active,
+        # Last player joins
+        pids[2] = join_session(self, self.sid, names[2])
+
+        # Check session state
+        session_state = get_state(self, self.sid)
+        check_session_state(self, session_state,
+                            sid=self.sid,
+                            players=pids, 
+                            turnOrder=pids[:2], 
+                            isLobby=False)
+
+        # Check player states
+        for pid, name, word, ready in zip(pids, names, words, readies):
+            player_state = session_state['players'][pid]
+            check_player_state(self, player_state, 
+                               pid=pid, name=name,
+                               word=word, ready=ready)
 
 class TestSetWord(unittest.TestCase):
     
     def setUp(self):
         self.sid = check_post(self, 'new-session')
 
-        self.username1 = 'test_username1'
-        self.word1 = 'test_word1'
-
-        self.username2 = 'test_username2'
-        self.word2 = 'test_word2'
-
-        self.username3 = 'test_username3'
-        self.word3 = 'test_word3'
-
-        self.usernames = [self.username1, self.username2, self.username3]
-        self.words = [self.word1, self.word2, self.word3]
-
-        json = {'sid': self.sid, 'name': self.username1}
-        self.pid1 = check_post(self, 'join-session', json=json)
+        self.names = ['name1', 'name2', 'name3']
+        self.words = ['word1', 'word2', 'word3']
+        self.pids = [None, None, None]
 
     def test_single_set_word(self):
-        # Set word
-        json = {'sid': self.sid, 'pid': self.pid1, 'word': self.word1}
-        check_post(self, 'set-word', json=json)
+        # Join and set word
+        self.pids[0] = check_post(self, 'join-session', 
+                                    {'sid': self.sid, 'name': self.names[0]})
+
+        set_word(self, self.sid, self.pids[0], self.words[0])
 
         # Allow server to update
         time.sleep(0.05)
 
         # Get session state
-        session_state = check_post(self, 'get-state', {'sid': self.sid})
+        session_state = get_state(self, self.sid) 
 
         # Check session state
         check_session_state(self, session_state, sid=self.sid,
-                            players=[self.pid1], turnOrder=[],
+                            players=self.pids[:1], turnOrder=[],
                             isLobby=True)
 
         # Check player state
-        player_state = session_state['players'][self.pid1]
-        check_player_state(self, player_state, pid=self.pid1,
-                           name=self.username1,
-                           word=self.word1, ready=True)
+        player_state = session_state['players'][self.pids[0]]
+        check_player_state(self, player_state, pid=self.pids[0],
+                           name=self.names[0],
+                           word=self.words[0], ready=True)
 
     def test_multiple_set_word_no_start(self):
-        # Add two other players
-        json = {'sid': self.sid, 'name': self.username2}
-        pid2 = check_post(self, 'join-session', json=json)
-        json = {'sid': self.sid, 'name': self.username3}
-        pid3 = check_post(self, 'join-session', json=json)
+        
+        # All players join
+        for i in range(3):
+            self.pids[i] = join_session(self, self.sid, self.names[i])
 
-        # Set words for two other players
-        json = {'sid': self.sid, 'pid': self.pid1, 'word': self.word1}
-        check_post(self, 'set-word', json=json)
-        json = {'sid': self.sid, 'pid': pid2, 'word': self.word2}
-        check_post(self, 'set-word', json=json)
+        # First two players set word
+        for i in range(2):
+            set_word(self, self.sid, self.pids[i], self.words[i])
 
         # Allow server to update
         time.sleep(0.05)
 
         # Get session state
-        session_state = check_post(self, 'get-state', {'sid': self.sid})
+        session_state = get_state(self, self.sid)
 
         # Check session state
         check_session_state(self, session_state, sid=self.sid,
-                            players=[self.pid1, pid2, pid3],
+                            players=self.pids,
                             turnOrder=[], isLobby=True)
 
         # Check player states 
-        zipped = zip([self.pid1, pid2, pid3], 
-                     self.usernames, 
-                     [self.word1, self.word2, ''])
-        for pid, name, word in zipped:
+        self.words = self.words[:2] + ['']
+        for pid, name, word in zip(self.pids, self.names, self.words):
             player_state = session_state['players'][pid]
             ready = word != ''
             check_player_state(self, player_state,
@@ -222,43 +285,71 @@ class TestSetWord(unittest.TestCase):
                                word=word, ready=ready)
 
     def test_multiple_set_word_start(self):
-        # Add two other players
-        json = {'sid': self.sid, 'name': self.username2}
-        pid2 = check_post(self, 'join-session', json=json)
-        json = {'sid': self.sid, 'name': self.username3}
-        pid3 = check_post(self, 'join-session', json=json)
+        
+        # All players join
+        for i in range(3):
+            self.pids[i] = join_session(self, self.sid, self.names[i])
 
-        # Set words for two other players
-        json = {'sid': self.sid, 'pid': self.pid1, 'word': self.word1}
-        check_post(self, 'set-word', json=json)
-        json = {'sid': self.sid, 'pid': pid2, 'word': self.word2}
-        check_post(self, 'set-word', json=json)
-        json = {'sid': self.sid, 'pid': pid3, 'word': self.word3}
-        check_post(self, 'set-word', json=json)
+        # All players set word
+        for i in range(3):
+            set_word(self, self.sid, self.pids[i], self.words[i])
 
         # Allow server to update
         time.sleep(0.05)
 
         # Get session state
-        session_state = check_post(self, 'get-state', {'sid': self.sid})
+        session_state = get_state(self, self.sid)
 
         # Check session state
         check_session_state(self, session_state, sid=self.sid,
-                            players=[self.pid1, pid2, pid3],
-                            turnOrder=[self.pid1, pid2, pid3],
+                            players=self.pids,
+                            turnOrder=self.pids,
                             isLobby=False)
 
         # Check player states
-        zipped = zip([self.pid1, pid2, pid3], self.usernames, self.words)
-        for pid, name, word in zipped:
+        for pid, name, word in zip(self.pids, self.names, self.words):
             player_state = session_state['players'][pid]
             check_player_state(self, player_state,
                                pid=pid, name=name,
                                word=word, ready=True)
 
-class TestGuessWord(unittest.TestCase):
+class TestGuessLetter(unittest.TestCase):
 
+    def setUp(self):
+
+        # Set up active game
+        self.sid = new_session(self)
+        self.pids = [None] * 3
+        self.names = ['name' + str(i) for i in range(1,4)]
+        self.words = ['banana', 'apple', 'cashew']
+        for i in range(3):
+            self.pids[i] = join_session(self, self.sid, self.names[i])
+        for i in range(3):
+            set_word(self, self.sid, self.pids[i], self.words[i])
+        
     def test_guess_letter_single_turn(self):
+        
+        # Single letter
+        guess_letter(self, self.sid, 'a')
+
+        time.sleep(0.05)
+
+        # Check session state
+        session_state = get_state(self, self.sid)
+        check_session_state(self, session_state, sid=self.sid,
+                            players=self.pids, 
+                            turnOrder=self.pids,
+                            guessedLetters='a',
+                            isLobby=False)
+
+        # Check player states
+        for pid, name, word in zip(self.pids, self.names, self.words):
+            player_state = session_state['players'][pid] 
+            check_player_state(self, player_state, 
+                               pid=pid, name=name,
+                               word=word, ready=True)
+
+    def test_guess_letter_multiple_turns(self):
         pass
 
 

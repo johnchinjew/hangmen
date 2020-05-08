@@ -34,4 +34,9 @@ parse url =
 
 withQuerySid : String -> String
 withQuerySid sid =
-    Url.Builder.relative [] [ Url.Builder.string "sid" sid ]
+    Url.Builder.absolute [] [ Url.Builder.string "sid" sid ]
+
+
+shareLink : String -> String
+shareLink sid =
+    "https://hangm.en" ++ withQuerySid sid

@@ -18,7 +18,7 @@ import Url.Builder
 postNewSession : (Result Http.Error String -> msg) -> Cmd msg
 postNewSession responseHandler =
     Http.post
-        { url = Url.Builder.relative [ "new-session" ] []
+        { url = Url.Builder.absolute [ "new-session" ] []
         , body = Http.emptyBody
         , expect = Http.expectString responseHandler
         }
@@ -27,7 +27,7 @@ postNewSession responseHandler =
 postJoinSession : { sid : String, name : String } -> (Result Http.Error String -> msg) -> Cmd msg
 postJoinSession { sid, name } responseHandler =
     Http.post
-        { url = Url.Builder.relative [ "join-session" ] []
+        { url = Url.Builder.absolute [ "join-session" ] []
         , body =
             Http.jsonBody <|
                 Encode.object
@@ -41,7 +41,7 @@ postJoinSession { sid, name } responseHandler =
 postGetState : { sid : String } -> (Result Http.Error Session -> msg) -> Cmd msg
 postGetState { sid } responseHandler =
     Http.post
-        { url = Url.Builder.relative [ "get-state" ] []
+        { url = Url.Builder.absolute [ "get-state" ] []
         , body =
             Http.jsonBody <|
                 Encode.object [ ( "sid", Encode.string sid ) ]
@@ -52,7 +52,7 @@ postGetState { sid } responseHandler =
 postSetWord : { sid : String, pid : String, word : String } -> (Result Http.Error () -> msg) -> Cmd msg
 postSetWord { sid, pid, word } responseHandler =
     Http.post
-        { url = Url.Builder.relative [ "set-word" ] []
+        { url = Url.Builder.absolute [ "set-word" ] []
         , body =
             Http.jsonBody <|
                 Encode.object

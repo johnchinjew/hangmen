@@ -216,13 +216,13 @@ view model =
 
             Lobby l ->
                 (if l.pollingFailed then
-                    [ Html.h2 [] [ Html.text "Experiencing connectivity issue..." ] ]
+                    [ Html.h2 [] [ Html.text "Experiencing connectivity issues..." ] ]
 
                  else
                     []
                 )
                     ++ [ Html.h2 []
-                            [ Html.text "Lobby" ]
+                            [ Html.text ("Lobby: " ++ Route.shareLink l.session.sid) ]
                        , Html.h3 []
                             [ Html.text "Players:" ]
                        , Html.ul []

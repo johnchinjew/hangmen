@@ -1,4 +1,4 @@
-import uuid from 'uuid'
+import { alphanumId } from './utility.js'
 import { Player } from './player.js'
 import { Alphabet } from './alphabet.js'
 
@@ -18,7 +18,7 @@ function shuffle(a) {
 }
 
 export function Session() {
-  this.id = uuid.v4()
+  this.id = alphanumId()
   this.players = {}
   this.turnOrder = []
   this.alphabet = new Alphabet()
@@ -48,10 +48,10 @@ export function Session() {
 
   this.removePlayer = function(pid) {
     if (!(pid in this.players)) {
-      return 
+      return
     }
 
-    delete this.players[pid] 
+    delete this.players[pid]
     this._killPlayer(pid)
   }
 
@@ -65,11 +65,11 @@ export function Session() {
       return
 
     player.setWordAndReady(word)
-    
+
     // Check number of players in lobby
     if (Object.keys(this.players).length < 2)
-      return 
-    
+      return
+
     // If all players are ready, start the game
     const allReady = Object.values(this.players).reduce((a, p) => a && p.isReady() , true)
     if (allReady) {
@@ -80,7 +80,7 @@ export function Session() {
 
   this._start = function () {
     // Randomly generate turn order using keys in player map
-    this.turnOrder = Object.keys(this.players)  // assumes a list is returned 
+    this.turnOrder = Object.keys(this.players)  // assumes a list is returned
     shuffle(this.turnOrder)
     this.isLobby = false
   }
@@ -90,7 +90,7 @@ export function Session() {
       return
 
     this.alphabet.set(letter)
-    
+
     // With this newly guessed letter, some players may die
     for (const pid in this.players) {
       const player = this.players[pid]
@@ -114,8 +114,8 @@ export function Session() {
 
     const target = this.players[pid]
     const guesser = this._currentPlayer()
-    
-    if (word === target.getWord()) 
+
+    if (word === target.getWord())
       this._killPlayer(target.getId())
     else
       this._killPlayer(guesser.getId())
@@ -137,7 +137,7 @@ export function Session() {
     return gameOver
   }
 
-  this._progressTurn = function() {    
+  this._progressTurn = function() {
     // Let's hope this works
     const top = this.turnOrder.splice(0, 1)[0]
     this.turnOrder.push(top)

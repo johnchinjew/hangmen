@@ -102,12 +102,16 @@ def check_response(test: unittest.TestCase,
     
 def check_session_state(test: unittest.TestCase, 
                         state: dict, sid:str=None, players:list=[],
-                        turnOrder:list=[], guessedLetters:str='', 
-                        isLobby:bool=True):
+                        turnOrderContains:list=None, turnOrder:list=None,
+                        guessedLetters:str='', isLobby:bool=True):
 
     # First check consistency of input
+    assert(not ((turnOrderContains is not None) and ((turnOrder is not None))))
     if isLobby:
-        assert(len(turnOrder) == 0)
+        if turnOrderContains is not None:
+            assert(len(turnOrderContains) == 0)
+        if turnOrder is not None:
+            assert(len(turnOrder) == 0)
         assert(len(guessedLetters) == 0)
 
     # Run equality check on state using input
@@ -120,8 +124,11 @@ def check_session_state(test: unittest.TestCase,
         test.assertIn(pid, state['players'])
     # Cannot check ACTUAL turn order (since it is shuffled)
     # only check if they both contain same elements
-    for pid in turnOrder:
-        test.assertIn(pid, state['turnOrder'])
+    if turnOrderContains is not None:
+        for pid in turnOrderContains:
+            test.assertIn(pid, state['turnOrder'])
+    if turnOrder is not None:
+        test.assertEqual(state['turnOrder'], turnOrder)
     for c in 'abcdefghjiklmnopqrstuvwxyz':
         test.assertIn(c, state['alphabet']['letters'])
         if c in guessedLetters:
@@ -211,7 +218,7 @@ class TestJoinSession(unittest.TestCase):
         check_session_state(self, session_state,
                             sid=self.sid,
                             players=pids, 
-                            turnOrder=pids[:2], 
+                            turnOrderContains=pids[:2], 
                             isLobby=False)
 
         # Check player states
@@ -245,7 +252,8 @@ class TestSetWord(unittest.TestCase):
 
         # Check session state
         check_session_state(self, session_state, sid=self.sid,
-                            players=self.pids[:1], turnOrder=[],
+                            players=self.pids[:1], 
+                            turnOrderContains=[],
                             isLobby=True)
 
         # Check player state
@@ -273,7 +281,8 @@ class TestSetWord(unittest.TestCase):
         # Check session state
         check_session_state(self, session_state, sid=self.sid,
                             players=self.pids,
-                            turnOrder=[], isLobby=True)
+                            turnOrderContains=[], 
+                            isLobby=True)
 
         # Check player states 
         self.words = self.words[:2] + ['']
@@ -303,7 +312,7 @@ class TestSetWord(unittest.TestCase):
         # Check session state
         check_session_state(self, session_state, sid=self.sid,
                             players=self.pids,
-                            turnOrder=self.pids,
+                            turnOrderContains=self.pids,
                             isLobby=False)
 
         # Check player states
@@ -326,8 +335,15 @@ class TestGuessLetter(unittest.TestCase):
             self.pids[i] = join_session(self, self.sid, self.names[i])
         for i in range(3):
             set_word(self, self.sid, self.pids[i], self.words[i])
+        self.turnOrder = None
         
     def test_guess_letter_single_turn(self):
+
+        # Get turnOrder
+        session_state = get_state(self, self.sid)
+        turnOrder = session_state['turnOrder']
+        # Update turnOrder to eventual state
+        turnOrder = turnOrder[1:] + turnOrder[:1]
         
         # Single letter
         guess_letter(self, self.sid, 'a')
@@ -338,7 +354,7 @@ class TestGuessLetter(unittest.TestCase):
         session_state = get_state(self, self.sid)
         check_session_state(self, session_state, sid=self.sid,
                             players=self.pids, 
-                            turnOrder=self.pids,
+                            turnOrder=turnOrder,
                             guessedLetters='a',
                             isLobby=False)
 
@@ -347,10 +363,105 @@ class TestGuessLetter(unittest.TestCase):
             player_state = session_state['players'][pid] 
             check_player_state(self, player_state, 
                                pid=pid, name=name,
-                               word=word, ready=True)
+                               word=word, ready=True,
+                               alive=True)
 
     def test_guess_letter_multiple_turns(self):
-        pass
+        
+        # Get turnOrder
+        session_state = get_state(self, self.sid)
+        turnOrder = session_state['turnOrder']
+        # Update turnOrder to eventual state 
+        for _ in range(3):
+            turnOrder = turnOrder[1:] + turnOrder[:1]
+
+        # Guess letter 3 times
+        for c in 'abc':
+            guess_letter(self, self.sid, c)
+
+        time.sleep(0.05)
+
+        # Check session state
+        session_state = get_state(self, self.sid)
+        check_session_state(self, session_state, sid=self.sid,
+                            players=self.pids,
+                            turnOrder=turnOrder,
+                            guessedLetters='abc',
+                            isLobby=False)
+
+        # Check player states (all alive)
+        for pid, name, word in zip(self.pids, self.names, self.words):
+            player_state = session_state['players'][pid]
+            check_player_state(self, player_state,
+                               pid=pid, name=name,
+                               word=word, ready=True,
+                               alive=True)
+
+    def test_guess_letter_multiple_turns_duplicate(self):
+
+        # Get turnOrder
+        session_state = get_state(self, self.sid)
+        turnOrder = session_state['turnOrder']
+        # Update turnOrder to eventual state 
+        for _ in range(3):
+            turnOrder = turnOrder[1:] + turnOrder[:1]
+
+        # Guess letter 4 times, but only 3 should be processed
+        for c in 'abbc':
+            guess_letter(self, self.sid, c)
+
+        time.sleep(0.05)
+
+        # Check session state
+        session_state = get_state(self, self.sid)
+        check_session_state(self, session_state, sid=self.sid,
+                            players=self.pids,
+                            turnOrder=turnOrder,
+                            guessedLetters='abc',
+                            isLobby=False)
+
+        # Check player states (all alive)
+        for pid, name, word in zip(self.pids, self.names, self.words):
+            player_state = session_state['players'][pid]
+            check_player_state(self, player_state,
+                               pid=pid, name=name,
+                               word=word, ready=True,
+                               alive=True)
+
+    def test_guess_letter_multiple_turns_kill(self):
+        
+        # Get turnOrder
+        session_state = get_state(self, self.sid)
+        turnOrder = session_state['turnOrder']
+        # Update turnOrder to eventual state 
+        for _ in range(2):
+            turnOrder = turnOrder[1:] + turnOrder[:1]
+        turnOrder.remove(self.pids[0]) # We kill player 1
+        turnOrder = turnOrder[1:] + turnOrder[:1]
+
+        # Guess letter 4 times, but only 3 should be processed
+        for c in 'ban':
+            guess_letter(self, self.sid, c)
+            
+        time.sleep(0.05)
+
+        # Check session state
+        session_state = get_state(self, self.sid)
+        check_session_state(self, session_state, sid=self.sid,
+                            players=self.pids,
+                            turnOrder=turnOrder,
+                            guessedLetters='ban',
+                            isLobby=False)
+
+        # Check player states (first dead)
+        alives = [False, True, True]
+        for pid, name, word, alive in zip(self.pids, self.names,
+                                   self.words, alives):
+            player_state = session_state['players'][pid]
+            check_player_state(self, player_state,
+                               pid=pid, name=name,
+                               word=word, ready=True,
+                               alive=alive)
 
 
 if __name__ == '__main__':

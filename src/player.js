@@ -29,6 +29,6 @@ export function Player(name) {
   }
 
   this.kill = function() {
-    this.isAlive = false
+    this.alive = false
   }
 }

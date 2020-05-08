@@ -98,7 +98,7 @@ export function Session() {
         this._killPlayer(pid)
     }
 
-    if (this._checkGameOver()) {
+    if (!this._checkGameOver()) {
       // Increment turn
       this._progressTurn()
     }
@@ -120,7 +120,7 @@ export function Session() {
     else
       this._killPlayer(guesser.getId())
 
-    if (this._checkGameOver()) {
+    if (!this._checkGameOver()) {
       // Increment turn
       this._progressTurn()
     }
@@ -130,6 +130,7 @@ export function Session() {
     let gameOver = true
     for (const pid in this.players) {
       const player = this.players[pid]
+      console.log(player.isAlive())
       if (pid !== this.turnOrder[0] && player.isAlive())
         gameOver = false
     }

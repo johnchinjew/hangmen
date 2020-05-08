@@ -4,6 +4,8 @@
 
 - Debug server and implement client
 - Make use of long-polling
+- Introduce typed Ids for client
+- Sanitize before sending session state in BE
 
 ## Build and run
 
@@ -20,7 +22,7 @@ curl -d "" http://localhost:3000/new-session
 ```
 
 
-### join-session 
+### join-session
 
 ```
 curl -d '{"sid":"5646a669-7092-43be-a6b6-b818ff7b5ce6", "name":"joji"}' -H "Content-Type: application/json" -X POST http://localhost:3000/join-session

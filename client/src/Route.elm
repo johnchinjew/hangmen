@@ -1,17 +1,14 @@
 module Route exposing (..)
 
 import Url exposing (Url)
+import Url.Builder
 import Url.Parser exposing ((<?>), Parser)
 import Url.Parser.Query
 
 
-type alias SessionId =
-    String
-
-
 type Route
     = Invalid
-    | Root (Maybe SessionId)
+    | Root (Maybe String)
 
 
 parser : Parser (Route -> a) a
@@ -29,3 +26,12 @@ parse url =
 
         Nothing ->
             Invalid
+
+
+
+-- LOCATIONS
+
+
+withQuerySid : String -> String
+withQuerySid sid =
+    Url.Builder.relative [] [ Url.Builder.string "sid" sid ]

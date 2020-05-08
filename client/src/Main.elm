@@ -10,11 +10,11 @@ import Html.Attributes as Attributes
 import Html.Events as Events
 import Http
 import Json.Encode as Encode
+import Player exposing (Player)
 import Route exposing (Route)
-import State exposing (..)
+import Session exposing (Session)
 import Time
 import Url exposing (Url)
-import Url.Builder
 
 
 
@@ -36,81 +36,26 @@ main =
 -- MODEL
 
 
-type alias Model =
-    { screen : Screen
-    , route : Route
-    , alert : Maybe String
-    , sid : Route.SessionId
-
-    -- , player : PlayerState
-    , pid : String
-    , name : String
-    , word : String
-    , ready : Bool
-    , alive : Bool
-    , sessionState : SessionState
-    , polling : Bool
-    }
-
-
-type Screen
-    = WelcomeMenu
-    | JoinMenu
-    | LoadingMenu
-    | LobbyMenu
-    | ActiveGame
-    | InvalidScreen
+type Model
+    = Welcome { gameCreateFailed : Bool }
+    | Join { sid : String, name : String, joinFailed : Bool }
+    | Lobby { session : Session, pid : String, word : String, pollingFailed : Bool }
+    | Game
 
 
 init : () -> Url -> Navigation.Key -> ( Model, Cmd Msg )
 init _ url _ =
-    let
-        route =
-            Route.parse url
-    in
-    ( { screen =
-            case route of
-                Route.Root maybeSid ->
-                    case maybeSid of
-                        Just sid ->
-                            JoinMenu
+    ( case Route.parse url of
+        Route.Root maybeSid ->
+            case maybeSid of
+                Just sid ->
+                    Join { sid = sid, name = "", joinFailed = False }
 
-                        Nothing ->
-                            WelcomeMenu
+                Nothing ->
+                    Welcome { gameCreateFailed = False }
 
-                Route.Invalid ->
-                    InvalidScreen
-      , route = route
-      , alert = Nothing
-      , sid =
-            case route of
-                Route.Root maybeSid ->
-                    case maybeSid of
-                        Just sid ->
-                            sid
-
-                        Nothing ->
-                            "<NULL_SID>"
-
-                Route.Invalid ->
-                    "<NULL_SID>"
-
-      --   , player =
-      , pid = "<NULL_PID>"
-      , name = "<NULL_NAME>"
-      , word = "<NULL_WORD>"
-      , ready = False
-      , alive = True
-      , sessionState =
-            { sid = "<NULL_SID>"
-            , players = Dict.fromList []
-            , turnOrder = []
-            , alphabet =
-                { letters = Dict.fromList [] }
-            , isLobby = True
-            }
-      , polling = False
-      }
+        Route.Invalid ->
+            Welcome { gameCreateFailed = False }
     , Cmd.none
     )
 
@@ -121,93 +66,101 @@ init _ url _ =
 
 type Msg
     = NoOp
+      -- WELCOME
     | ClickedCreateGame
+    | ReceivedSid (Result Http.Error String)
+      -- JOIN
+    | EditName String
     | ClickedJoinGame
-    | ClickedSetWord
-    | PollTick
+    | ReceivedPid (Result Http.Error String)
+    | ReceivedFirstSession String (Result Http.Error Session)
+      -- LOBBY
+    | EditWord String
+    | ClickedStartGame
     | ReceivedWhatever (Result Http.Error ())
-    | ReceivedSessionId (Result Http.Error String)
-    | ReceivedPlayerId (Result Http.Error String)
-    | ReceivedSessionState (Result Http.Error SessionState)
-    | ChangeName String
-    | ChangeWord String
+      -- POLLING
+    | PollTick
+    | ReceivedSession (Result Http.Error Session)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    case msg of
-        NoOp ->
-            ( model, Cmd.none )
-
-        ClickedCreateGame ->
+    case ( msg, model ) of
+        -- WELCOME
+        ( ClickedCreateGame, Welcome _ ) ->
             ( model
-            , Api.postNewSession ReceivedSessionId
+            , Api.postNewSession ReceivedSid
             )
 
-        ClickedJoinGame ->
-            ( { model | screen = LoadingMenu, polling = True }
-            , Api.postJoinSession { sid = model.sid, name = model.name } ReceivedPlayerId
-            )
-
-        ClickedSetWord ->
-            ( { model | ready = True }
-            , Api.postSetWord { sid = model.sid, pid = model.pid, word = model.word } ReceivedWhatever
-            )
-
-        PollTick ->
-            ( model, Api.postGetState { sid = model.sid } ReceivedSessionState )
-
-        ReceivedWhatever _ ->
-            update NoOp model
-
-        ReceivedSessionId result ->
+        ( ReceivedSid result, Welcome w ) ->
             case result of
                 Ok sid ->
-                    ( model
-                    , Navigation.load <|
-                        Url.Builder.relative [] [ Url.Builder.string "sid" sid ]
-                    )
+                    ( model, Navigation.load (Route.withQuerySid sid) )
 
                 Err _ ->
-                    ( { model | alert = Just "Failed to create session." }, Cmd.none )
+                    ( Welcome { w | gameCreateFailed = True }, Cmd.none )
 
-        ReceivedPlayerId result ->
+        -- JOIN
+        ( EditName name, Join j ) ->
+            ( Join { j | name = name }, Cmd.none )
+
+        ( ClickedJoinGame, Join j ) ->
+            ( model, Api.postJoinSession { sid = j.sid, name = j.name } ReceivedPid )
+
+        ( ReceivedPid result, Join j ) ->
             case result of
                 Ok pid ->
-                    ( { model | pid = pid, screen = LoadingMenu, polling = True }
-                    , Cmd.none
-                    )
+                    ( model, Api.postGetState { sid = j.sid } (ReceivedFirstSession pid) )
 
                 Err _ ->
-                    ( { model | alert = Just "Failed to join session." }, Cmd.none )
+                    ( Join { j | joinFailed = True }, Cmd.none )
 
-        ReceivedSessionState result ->
+        ( ReceivedFirstSession pid result, Join j ) ->
             case result of
-                Ok state ->
-                    ( { model
-                        | screen =
-                            if state.isLobby then
-                                LobbyMenu
+                Ok session ->
+                    ( Lobby { session = session, pid = pid, word = "", pollingFailed = False }, Cmd.none )
 
-                            else
-                                ActiveGame
-                        , sessionState = state
-                      }
+                Err _ ->
+                    ( Join { j | joinFailed = True }, Cmd.none )
+
+        -- LOBBY
+        ( EditWord word, Lobby l ) ->
+            ( Lobby { l | word = String.toLower word }, Cmd.none )
+
+        ( ClickedStartGame, Lobby l ) ->
+            ( Lobby l, Api.postSetWord { sid = l.session.sid, pid = l.pid, word = l.word } ReceivedWhatever )
+
+        ( ReceivedWhatever _, Lobby l ) ->
+            update NoOp model
+
+        ( ReceivedSession result, Lobby l ) ->
+            case result of
+                Ok session ->
+                    ( if session.isLobby then
+                        Lobby { l | session = session }
+
+                      else
+                        Game
                     , Cmd.none
                     )
 
                 Err _ ->
-                    ( { model | alert = Just "Failed to get session state." }, Cmd.none )
+                    ( Lobby { l | pollingFailed = True }, Cmd.none )
 
-        ChangeName name ->
-            ( { model | name = name }, Cmd.none )
+        -- POLLING
+        ( PollTick, Lobby l ) ->
+            ( model, Api.postGetState { sid = l.session.sid } ReceivedSession )
 
-        ChangeWord word ->
-            ( { model | word = String.toLower word }, Cmd.none )
+        -- OTHER
+        ( NoOp, _ ) ->
+            ( model, Cmd.none )
+
+        _ ->
+            update NoOp model
 
 
 
--- SUBSCRIPTION
+-- SUBSCRIPTIONS
 
 
 pollInterval : Float
@@ -217,11 +170,12 @@ pollInterval =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    if model.polling then
-        Time.every pollInterval (\_ -> PollTick)
+    case model of
+        Lobby _ ->
+            Time.every pollInterval (\_ -> PollTick)
 
-    else
-        Sub.none
+        _ ->
+            Sub.none
 
 
 
@@ -232,95 +186,74 @@ view : Model -> Browser.Document Msg
 view model =
     { title = "Hangmen"
     , body =
-        case model.screen of
-            WelcomeMenu ->
-                let
-                    maybeErrorMsg =
-                        case model.alert of
-                            Just msg ->
-                                [ Html.h2 [] [ Html.text msg ] ]
+        case model of
+            Welcome w ->
+                (if w.gameCreateFailed then
+                    [ Html.h2 [] [ Html.text "Failed to create game! Please try again later." ] ]
 
-                            Nothing ->
-                                []
-                in
-                maybeErrorMsg
+                 else
+                    []
+                )
                     ++ [ Html.h1 [] [ Html.text "Hangmen" ]
                        , Html.button
                             [ Events.onClick ClickedCreateGame ]
-                            [ Html.text "Create Game" ]
+                            [ Html.text "Create game" ]
                        ]
 
-            JoinMenu ->
-                [ Html.text "Choose name: "
-                , Html.input [ Events.onInput ChangeName ] []
-                , Html.button
-                    [ Events.onClick ClickedJoinGame ]
-                    [ Html.text "Join Game" ]
-                ]
+            Join j ->
+                (if j.joinFailed then
+                    [ Html.h2 [] [ Html.text "Could not join session! Please try again." ] ]
 
-            LoadingMenu ->
-                [ Html.h2
+                 else
                     []
-                    [ Html.text "Joining..." ]
-                ]
+                )
+                    ++ [ Html.text "Enter name:"
+                       , Html.input [ Events.onInput EditName ] []
+                       , Html.button
+                            [ Events.onClick ClickedJoinGame ]
+                            [ Html.text "Join game" ]
+                       ]
 
-            LobbyMenu ->
-                [ Html.h2 []
-                    [ Html.text "Lobby" ]
-                , Html.h3 []
-                    [ Html.text "Players:" ]
-                , Html.ul []
-                    (List.map
-                        (\player ->
-                            Html.li []
-                                [ Html.text <|
-                                    player.name
-                                        ++ ": "
-                                        ++ (if player.ready then
-                                                "Ready"
+            Lobby l ->
+                (if l.pollingFailed then
+                    [ Html.h2 [] [ Html.text "Experiencing connectivity issue..." ] ]
 
-                                            else
-                                                "Not Ready"
-                                           )
+                 else
+                    []
+                )
+                    ++ [ Html.h2 []
+                            [ Html.text "Lobby" ]
+                       , Html.h3 []
+                            [ Html.text "Players:" ]
+                       , Html.ul []
+                            (List.map
+                                (\player ->
+                                    Html.li []
+                                        [ Html.text <|
+                                            player.name
+                                                ++ ": "
+                                                ++ (if player.ready then
+                                                        "Ready"
+
+                                                    else
+                                                        "Not ready"
+                                                   )
+                                        ]
+                                )
+                                (Dict.values l.session.players)
+                            )
+                       , Html.p []
+                            [ Html.text "Pick word:"
+                            , Html.input
+                                [ Events.onInput EditWord
                                 ]
-                        )
-                     <|
-                        Dict.values model.sessionState.players
-                    )
-                , Html.p []
-                    [ Html.text "Choose word:"
-                    , Html.input
-                        [ Events.onInput ChangeWord
-                        ]
-                        []
-                    , Html.button
-                        [ Events.onClick ClickedSetWord
-                        ]
-                        [ Html.text "Start game" ]
-                    ]
-                ]
+                                []
+                            , Html.button
+                                [ Events.onClick ClickedStartGame ]
+                                [ Html.text "Start game" ]
+                            ]
+                       ]
 
-            ActiveGame ->
-                [ Html.h1 [] [ Html.text "Hangmen" ]
-                , Html.h2 [] [ Html.text "Active game screen" ]
-                ]
-
-            InvalidScreen ->
-                [ Html.h1 [] [ Html.text "404" ]
-                ]
-    }
-
-
-renderSession : String -> SessionState -> Browser.Document Msg
-renderSession name state =
-    { title = "Hangmen"
-    , body =
-        [ Html.p []
-            [ Html.text <|
-                "name: "
-                    ++ name
-                    ++ " | state: "
-                    ++ sessionStateToString state
-            ]
-        ]
+            Game ->
+                [ Html.text "Not implemented" ]
     }

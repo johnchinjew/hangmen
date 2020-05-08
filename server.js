@@ -14,9 +14,9 @@ server.use('/', express.static('client'))
 // res = string (session id)
 server.post('/new-session', (req, res) => {
   console.log("POST new-session")
-  
+
   const sid = sessionManager.createSession()
-  
+
   res.send(sid)
 })
 
@@ -26,14 +26,14 @@ server.post('/join-session', (req, res) => {
   console.log(`POST join-session ${JSON.stringify(req.body)}`)
 
   const { sid, name } = req.body
-  
+
   if (typeof sid !== 'string' || typeof name !== 'string') {
     res.end()
     return
   }
-  
+
   const session = sessionManager.getSession(sid)
-  
+
   if (!session) {
     console.log('Requested session does not exist.')
     res.end()
@@ -48,23 +48,23 @@ server.post('/join-session', (req, res) => {
 // res = json (session)
 server.post('/get-state', (req, res) => {
   console.log(`POST get-state ${JSON.stringify(req.body)}`)
-  
+
   const { sid } = req.body
-  
+
   if (typeof sid !== 'string') {
     res.end()
     return
   }
 
   const session = sessionManager.getSession(sid)
-  
+
   if (!session) {
     console.log('Requested session does not exist.')
     res.end()
     return
   }
 
-  res.json(session) // TODO: prepare/sanitize 
+  res.json(session) // TODO: prepare/sanitize
   res.end()
 })
 
@@ -72,16 +72,16 @@ server.post('/get-state', (req, res) => {
 // res = empty
 server.post('/set-word', (req, res) => {
   console.log(`POST set-word ${JSON.stringify(req.body)}`)
-  
+
   const { sid, pid, word } = req.body
-  
+
   if (typeof sid !== 'string' || typeof pid !== 'string' || typeof word !== 'string') {
     res.end()
     return
   }
 
   const session = sessionManager.getSession(sid)
-  
+
   if (!session) {
     console.log('Requested session does not exist.')
     res.end()
@@ -96,9 +96,9 @@ server.post('/set-word', (req, res) => {
 // res = empty
 server.post('/guess-letter', (req, res) => {
   console.log(`POST guess-letter ${JSON.stringify(req.body)}`)
-  
+
   const { sid, letter } = req.body
-  
+
   if (typeof sid !== 'string' || typeof letter !== 'string' || letter.length !== 1) {
     res.end()
     return
@@ -120,16 +120,16 @@ server.post('/guess-letter', (req, res) => {
 // res = empty
 server.post('/guess-word', (req, res) => {
   console.log(`POST guess-word ${JSON.stringify(req.body)}`)
-  
+
   const { sid, pid, word } = req.body
-  
+
   if (typeof sid !== 'string' || typeof pid !== 'string' || typeof word !== 'string') {
     res.end()
     return
   }
 
   const session = sessionManager.getSession(sid)
-  
+
   if (!session) {
     console.log('Requested session does not exist.')
     res.end()
@@ -163,7 +163,7 @@ server.post('/exit-session', (req, res) => {
     res.end()
     return
   }
-  
+
   session.removePlayer(pid)
   res.end()
 })

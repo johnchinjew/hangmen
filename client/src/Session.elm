@@ -15,6 +15,39 @@ type alias Session =
     }
 
 
+type Status
+    = Winner String
+    | Draw
+    | Playing
+
+
+
+-- QUERY
+
+
+turn : Session -> Maybe String
+turn session =
+    List.head session.turnOrder
+
+
+status : Session -> Status
+status session =
+    let
+        gameover =
+            List.length session.turnOrder <= 1
+    in
+    if gameover then
+        case List.head session.turnOrder of
+            Just pid ->
+                Winner pid
+
+            Nothing ->
+                Draw
+
+    else
+        Playing
+
+
 
 -- DECODERS
 
@@ -27,38 +60,3 @@ decode =
         (Decode.field "turnOrder" <| Decode.list Decode.string)
         (Decode.field "alphabet" Alphabet.decode)
         (Decode.field "isLobby" Decode.bool)
-
-
-
--- DEBUGGING
-
-
-toString : Session -> String
-toString session =
-    "{ sid: "
-        ++ session.sid
-        ++ " players: ["
-        ++ String.join
-            ""
-            (List.map
-                (\player -> Player.toString player)
-                (Dict.values session.players)
-            )
-        ++ "] turn order: [ "
-        ++ String.join
-            ""
-            (List.map
-                (\pid -> pid ++ ", ")
-                session.turnOrder
-            )
-        ++ " ]"
-        ++ " alphabet: "
-        ++ Alphabet.toString session.alphabet
-        ++ " lobby: "
-        ++ (if session.isLobby then
-                "True"
-
-            else
-                "False"
-                    ++ " }"
-           )

@@ -1,11 +1,12 @@
 module Main exposing (..)
 
+import Alphabet exposing (Alphabet)
 import Api
 import Browser
 import Browser.Navigation as Navigation
 import Debug
 import Dict exposing (Dict)
-import Html
+import Html exposing (Html)
 import Html.Attributes as Attributes
 import Html.Events as Events
 import Http
@@ -37,10 +38,26 @@ main =
 
 
 type Model
-    = Welcome { gameCreateFailed : Bool }
-    | Join { sid : String, name : String, joinFailed : Bool }
-    | Lobby { session : Session, pid : String, word : String, pollingFailed : Bool }
-    | Game
+    = Welcome WelcomeData
+    | Join JoinData
+    | Lobby LobbyData
+    | Game GameData
+
+
+type alias WelcomeData =
+    { gameCreateFailed : Bool }
+
+
+type alias JoinData =
+    { sid : String, name : String, joinFailed : Bool }
+
+
+type alias LobbyData =
+    { session : Session, pid : String, word : String, pollingFailed : Bool }
+
+
+type alias GameData =
+    { session : Session, pid : String, pollingFailed : Bool }
 
 
 init : () -> Url -> Navigation.Key -> ( Model, Cmd Msg )
@@ -77,15 +94,20 @@ type Msg
       -- LOBBY
     | EditWord String
     | ClickedStartGame
-    | ReceivedWhatever (Result Http.Error ())
+      -- GAME
+    | GuessLetter String
       -- POLLING
     | PollTick
     | ReceivedSession (Result Http.Error Session)
+    | ReceivedWhatever (Result Http.Error ())
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case ( msg, model ) of
+        ( NoOp, _ ) ->
+            ( model, Cmd.none )
+
         -- WELCOME
         ( ClickedCreateGame, Welcome _ ) ->
             ( model
@@ -130,8 +152,9 @@ update msg model =
         ( ClickedStartGame, Lobby l ) ->
             ( Lobby l, Api.postSetWord { sid = l.session.sid, pid = l.pid, word = l.word } ReceivedWhatever )
 
-        ( ReceivedWhatever _, Lobby l ) ->
-            update NoOp model
+        -- LOBBY POLLING
+        ( PollTick, Lobby l ) ->
+            ( model, Api.postGetState { sid = l.session.sid } ReceivedSession )
 
         ( ReceivedSession result, Lobby l ) ->
             case result of
@@ -140,22 +163,35 @@ update msg model =
                         Lobby { l | session = session }
 
                       else
-                        Game
+                        Game { session = session, pid = l.pid, pollingFailed = False }
                     , Cmd.none
                     )
 
                 Err _ ->
                     ( Lobby { l | pollingFailed = True }, Cmd.none )
 
+        -- GAME
+        ( GuessLetter letter, Game g ) ->
+            ( model, Api.postGuessLetter { sid = g.session.sid, letter = letter } ReceivedWhatever )
+
+        -- GAME POLLING
+        ( PollTick, Game g ) ->
+            ( model, Api.postGetState { sid = g.session.sid } ReceivedSession )
+
+        ( ReceivedSession result, Game g ) ->
+            case result of
+                Ok session ->
+                    ( Game { g | session = session }, Cmd.none )
+
+                Err _ ->
+                    ( Game { g | pollingFailed = True }, Cmd.none )
+
         -- POLLING
-        ( PollTick, Lobby l ) ->
-            ( model, Api.postGetState { sid = l.session.sid } ReceivedSession )
+        ( ReceivedWhatever _, _ ) ->
+            update NoOp model
 
-        -- OTHER
-        ( NoOp, _ ) ->
-            ( model, Cmd.none )
-
-        _ ->
+        -- CATCHALL
+        ( _, _ ) ->
             update NoOp model
 
 
@@ -172,6 +208,9 @@ subscriptions : Model -> Sub Msg
 subscriptions model =
     case model of
         Lobby _ ->
+            Time.every pollInterval (\_ -> PollTick)
+
+        Game _ ->
             Time.every pollInterval (\_ -> PollTick)
 
         _ ->
@@ -254,6 +293,94 @@ view model =
                             ]
                        ]
 
-            Game ->
-                [ Html.text "Not implemented" ]
+            Game g ->
+                [ Html.h2
+                    []
+                    [ let
+                        name =
+                            case Session.turn g.session of
+                                Just turn ->
+                                    case Dict.get turn g.session.players of
+                                        Just player ->
+                                            player.name
+
+                                        Nothing ->
+                                            "Unknown"
+
+                                Nothing ->
+                                    "Unknown"
+                      in
+                      case Session.status g.session of
+                        Session.Winner pid ->
+                            Html.text <| name ++ " won!"
+
+                        Session.Draw ->
+                            Html.text "Draw!"
+
+                        Session.Playing ->
+                            Html.text <| name ++ "'s turn!"
+                    ]
+                , viewPlayers g
+                , viewAlphabet g
+                ]
     }
+
+
+viewPlayers : GameData -> Html Msg
+viewPlayers g =
+    Html.div []
+        (List.map
+            (\player ->
+                Html.p []
+                    [ Html.text
+                        (player.name
+                            ++ ": "
+                            ++ wordSoFar player.word g.session.alphabet
+                        )
+                    ]
+            )
+            (Dict.values g.session.players)
+        )
+
+
+wordSoFar : String -> Alphabet -> String
+wordSoFar word alphabet =
+    String.map
+        (\char ->
+            case Dict.get (String.fromChar char) alphabet.letters of
+                Just isSet ->
+                    if isSet then
+                        char
+
+                    else
+                        '_'
+
+                Nothing ->
+                    '_'
+        )
+        word
+
+
+viewAlphabet : GameData -> Html Msg
+viewAlphabet g =
+    Html.p []
+        (List.map
+            (\letter ->
+                Html.button
+                    ([ Attributes.disabled
+                        (Tuple.second letter
+                            || Session.turn g.session
+                            /= Just g.pid
+                        )
+                     ]
+                        ++ (if Session.turn g.session == Just g.pid then
+                                [ Events.onClick (GuessLetter (Tuple.first letter)) ]
+
+                            else
+                                []
+                           )
+                    )
+                    [ Html.text <| Tuple.first letter ]
+            )
+            (Dict.toList g.session.alphabet.letters)
+        )

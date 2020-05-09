@@ -62,3 +62,17 @@ postSetWord { sid, pid, word } responseHandler =
                     ]
         , expect = Http.expectWhatever responseHandler
         }
+
+
+postGuessLetter : { sid : String, letter : String } -> (Result Http.Error () -> msg) -> Cmd msg
+postGuessLetter { sid, letter } responseHandler =
+    Http.post
+        { url = Url.Builder.absolute [ "guess-letter" ] []
+        , body =
+            Http.jsonBody <|
+                Encode.object
+                    [ ( "sid", Encode.string sid )
+                    , ( "letter", Encode.string letter )
+                    ]
+        , expect = Http.expectWhatever responseHandler
+        }

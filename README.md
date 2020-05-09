@@ -6,6 +6,7 @@
 - Make use of long-polling
 - Introduce typed Ids for client
 - Sanitize before sending session state in BE
+- Prevent double-guessing/concurrency issues
 
 ## Build and run
 

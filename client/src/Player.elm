@@ -25,31 +25,3 @@ decode =
         (Decode.field "word" Decode.string)
         (Decode.field "ready" Decode.bool)
         (Decode.field "alive" Decode.bool)
-
-
-
--- DEBUGGING
-
-
-toString : Player -> String
-toString player =
-    "{ id: "
-        ++ player.id
-        ++ " name: "
-        ++ player.name
-        ++ " word: "
-        ++ player.word
-        ++ " ready: "
-        ++ (if player.ready then
-                "True"
-
-            else
-                "False"
-                    ++ " alive: "
-                    ++ (if player.alive then
-                            "True }"
-
-                        else
-                            "False }"
-                       )
-           )

@@ -436,6 +436,42 @@ class TestGuessLetter(unittest.TestCase):
         # Update turnOrder to eventual state 
         for _ in range(2):
             turnOrder = turnOrder[1:] + turnOrder[:1]
+        turnOrder.remove(self.pids[0]) # We kill player, increment turn
+        for _ in range(3):
+            turnOrder = turnOrder[1:] + turnOrder[:1]
+        turnOrder.remove(self.pids[1]) 
+        # Guess letter 6 times
+        for c in 'banple':
+            guess_letter(self, self.sid, c)
+            
+        time.sleep(0.05)
+
+        # Check session state
+        session_state = get_state(self, self.sid)
+        check_session_state(self, session_state, sid=self.sid,
+                            players=self.pids,
+                            turnOrder=turnOrder,
+                            guessedLetters='banple',
+                            isLobby=False)
+
+        # Check player states (first dead)
+        alives = [False, False, True]
+        for pid, name, word, alive in zip(self.pids, self.names,
+                                   self.words, alives):
+            player_state = session_state['players'][pid]
+            check_player_state(self, player_state,
+                               pid=pid, name=name,
+                               word=word, ready=True,
+                               alive=alive)
+
+    def test_guess_letter_multiple_turns_win(self):
+        
+        # Get turnOrder
+        session_state = get_state(self, self.sid)
+        turnOrder = session_state['turnOrder']
+        # Update turnOrder to eventual state 
+        for _ in range(2):
+            turnOrder = turnOrder[1:] + turnOrder[:1]
         turnOrder.remove(self.pids[0]) # We kill player 1
         turnOrder = turnOrder[1:] + turnOrder[:1]
 
@@ -463,6 +499,91 @@ class TestGuessLetter(unittest.TestCase):
                                word=word, ready=True,
                                alive=alive)
 
+class TestGuessWord(unittest.TestCase):
+    
+    def setUp(self):
+        
+        # Set up active game
+        self.sid = new_session(self)
+        self.pids = [None] * 3
+        self.names = ['name' + str(i) for i in range(1,4)]
+        self.words = ['banana', 'apple', 'cashew']
+        for i in range(3):
+            self.pids[i] = join_session(self, self.sid, self.names[i])
+        for i in range(3):
+            set_word(self, self.sid, self.pids[i], self.words[i])
+        self.turnOrder = None
+
+    def test_guess_word_success(self):
+
+        # Get turnOrder
+        session_state = get_state(self, self.sid)
+        turnOrder = session_state['turnOrder']
+        guesser = turnOrder[0] # grab current player
+        guesser_idx = self.pids.index(turnOrder[0]) 
+        target = [pid for pid in self.pids if pid != guesser][0] # pick target
+        target_idx = self.pids.index(target)
+        # Update turnOrder to eventual state
+        turnOrder.remove(target)
+        turnOrder = turnOrder[1:] + turnOrder[:1]
+        
+        # Guess third player's word successfully
+        guess_word(self, self.sid, target, self.words[target_idx])
+
+        time.sleep(0.05)
+
+        # Check session state 
+        session_state = get_state(self, self.sid) 
+        check_session_state(self, session_state, sid=self.sid,
+                            players=self.pids, 
+                            turnOrder=turnOrder,
+                            guessedLetters='',
+                            isLobby=False)
+
+        # Check player states
+        alives = [i != target_idx for i in range(3)]
+        for pid, name, word, alive in zip(self.pids, self.names, 
+                                          self.words, alives):
+            player_state = session_state['players'][pid]
+            check_player_state(self, player_state, 
+                               pid=pid, name=name,
+                               word=word, ready=True,
+                               alive=alive)
+
+    def test_guess_word_fail(self):
+    
+        # Get turnOrder
+        session_state = get_state(self, self.sid)
+        turnOrder = session_state['turnOrder']
+        guesser = turnOrder[0] # grab current player
+        guesser_idx = self.pids.index(turnOrder[0]) 
+        target = [pid for pid in self.pids if pid != guesser][0] # pick target
+        target_idx = self.pids.index(target)
+        # Update turnOrder to eventual state
+        turnOrder.remove(guesser)
+        
+        # Guess third player's word successfully
+        guess_word(self, self.sid, target, 'incorrect')
+
+        time.sleep(0.05)
+
+        # Check session state 
+        session_state = get_state(self, self.sid) 
+        check_session_state(self, session_state, sid=self.sid,
+                            players=self.pids, 
+                            turnOrder=turnOrder,
+                            guessedLetters='',
+                            isLobby=False)
+
+        # Check player states
+        alives = [i != guesser_idx for i in range(3)]
+        for pid, name, word, alive in zip(self.pids, self.names, 
+                                          self.words, alives):
+            player_state = session_state['players'][pid]
+            check_player_state(self, player_state, 
+                               pid=pid, name=name,
+                               word=word, ready=True,
+                               alive=alive)
 
 if __name__ == '__main__':
     unittest.main()

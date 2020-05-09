@@ -46,12 +46,10 @@ export function Session() {
     }
   }
 
-  this.removePlayer = function(pid) {
-    if (!(pid in this.players)) {
-      return
-    }
-
-    delete this.players[pid]
+  this.removePlayer = function(pid) { 
+    // We don't actually want to delete player from library
+    // as we want to keep the data to render game state
+    // We simply want to kill the player
     this._killPlayer(pid)
   }
 
@@ -98,10 +96,9 @@ export function Session() {
         this._killPlayer(pid)
     }
 
-    if (!this._checkGameOver()) {
-      // Increment turn
+    const guesser = this._currentPlayer()
+    if (!this._checkGameOver() && guesser.isAlive())
       this._progressTurn()
-    }
   }
 
   this._currentPlayer = function() {
@@ -109,28 +106,31 @@ export function Session() {
   }
 
   this.guessWord = function(pid, word) {
-    if (this.isLobby || !player.isAlive())
-      return
+    
+    if (this.isLobby) 
+      return 
 
     const target = this.players[pid]
     const guesser = this._currentPlayer()
 
+    if (!target.isAlive() || (target.getId() === guesser.getId()))
+      return 
+
     if (word === target.getWord())
       this._killPlayer(target.getId())
-    else
+    else  
       this._killPlayer(guesser.getId())
 
-    if (!this._checkGameOver()) {
-      // Increment turn
+    if (!this._checkGameOver() && guesser.isAlive()) {
       this._progressTurn()
     }
+
   }
 
   this._checkGameOver = function() {
     let gameOver = true
     for (const pid in this.players) {
       const player = this.players[pid]
-      console.log(player.isAlive())
       if (pid !== this.turnOrder[0] && player.isAlive())
         gameOver = false
     }

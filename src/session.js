@@ -126,8 +126,6 @@ export function Session() {
       const player = this.players[pid]
       if (pid !== this.turnOrder[0] && player.isAlive()) gameOver = false
     }
-    if (gameOver)
-      this._reset()
     return gameOver
   }
 
@@ -137,7 +135,7 @@ export function Session() {
     this.turnOrder.push(top)
   }
 
-  this._reset = function () {
+  this.reset = function () {
     this.players = {}
     this.turnOrder = []
     this.alphabet = new Alphabet()

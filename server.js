@@ -63,13 +63,7 @@ server.post('/get-state', (req, res) => {
     res.end()
     return
   }
-  
-  // Meant to handle race condition of session reset + state polling
-  if (Object.keys(session.players).length == 0) {
-    console.log('Attempted to poll an empty session')
-    res.end()
-    return
-  }
+
   res.json(session) // TODO: prepare/sanitize
   res.end()
 })
@@ -174,8 +168,38 @@ server.post('/exit-session', (req, res) => {
   res.end()
 })
 
-// NOTE: On gameover, every session is automatically reset,
-// user is presented with a "Play again" button.
-// If any user taps this button, they rejoin the reset session
+// NOTE: On gameover, every user is presented with a "Play again" button.
+// If any user taps this button, the session re-enters a lobby state and
+// all users are sent back to the lobby.
+
+// req.body = { sid : string (session id) }
+// res = empty
+server.post('/reset-session', (req, res) => {
+  console.log(`POST reset-session ${JSON.stringify(req.body)}`)
+
+  const { sid } = req.body
+
+  if (typeof sid !== 'string') {
+    res.end()
+    return
+  }
+
+  const session = sessionManager.getSession(sid)
+
+  if (!session) {
+    console.log('Requested session does not exist.')
+    res.end()
+    return
+  }
+
+  if (session.isLobby) {
+    console.log('Attempted to reset a lobby session')
+    res.end()
+    return
+  }
+
+  session.reset()
+  res.end()
+})
 
 server.listen(port, () => console.log(`Listening on port ${port}!`))

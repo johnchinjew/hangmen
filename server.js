@@ -116,14 +116,14 @@ server.post('/guess-letter', (req, res) => {
   res.end()
 })
 
-// req.body = { sid : string (session id), pid : string (target player id), word : string }
+// req.body = { sid : string (session id), word : string }
 // res = empty
 server.post('/guess-word', (req, res) => {
   console.log(`POST guess-word ${JSON.stringify(req.body)}`)
 
-  const { sid, pid, word } = req.body
+  const { sid, word } = req.body
 
-  if (typeof sid !== 'string' || typeof pid !== 'string' || typeof word !== 'string') {
+  if (typeof sid !== 'string' || typeof word !== 'string') {
     res.end()
     return
   }
@@ -136,7 +136,7 @@ server.post('/guess-word', (req, res) => {
     return
   }
 
-  session.guessWord(pid, word)
+  session.guessWord(word)
   res.end()
 })
 

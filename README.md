@@ -22,7 +22,6 @@
 
 ```
 - NEW: https://www.figma.com/file/duqoAy2jCyriuG03nRTxUJ/Hangmen?node-id=0%3A1
-- Guess word does not need to specify a target
 - Use Game PIN: Only one entrypoint (Home), only ONE URL, no longer a need for routing
 - Merge join, and lobby
 - Allow hot joins with "retro-active loss", remove "spectation"
@@ -37,6 +36,10 @@
 ```
 
 - Introduce typed Ids for client
+
+## Changes
+
+- Guess word does not need to specify a target
 
 ## Build and run
 

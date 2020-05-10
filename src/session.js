@@ -104,16 +104,24 @@ export function Session() {
     return this.players[this.turnOrder[0]]
   }
 
-  this.guessWord = function (pid, word) {
+  this.guessWord = function (word) {
     if (this.isLobby || this._checkGameOver()) return
 
-    const target = this.players[pid]
     const guesser = this._currentPlayer()
 
-    if (!target.isAlive() || target.getId() === guesser.getId()) return
+    let suddenDeath = true
 
-    if (word === target.getWord()) this._killPlayer(target.getId())
-    else this._killPlayer(guesser.getId())
+    for (const pid in this.players) {
+      const target = this.players[pid]
+
+      if (word === target.getWord()) {
+        this._killPlayer(target.getId())
+        suddenDeath = false
+      }
+    }
+
+    if (suddenDeath)
+        this._killPlayer(guesser.getId())
 
     if (!this._checkGameOver() && guesser.isAlive()) {
       this._progressTurn()

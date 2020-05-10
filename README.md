@@ -2,35 +2,44 @@
 
 ## TODO
 
-- Debug server and implement client
-- Make use of long-polling
+- Do we need player ids - NO, using websockets
+- Async
+    - Locking is necessary! But also, stop listening to connections.
+    - We want all operations for each session to be synchronous
+    - Prevent double-guessing/concurrency issues
+- Socket.io
+    - https://ellie-app.com/8yYgw7y7sM2a1
+    - https://socket.io/docs/#Using-with-Express
+
+- Refine APIs w/r new design
+- Fix server first, completely.
+    - Server auto-kill dead sessions
+    - Sanitize before sending session state in BE
+    - Disallow set-word with numbers, etc
+
+- End game is too ambiguous!
+    - Refer to notes!!
+
+```
+- NEW: https://www.figma.com/file/duqoAy2jCyriuG03nRTxUJ/Hangmen?node-id=0%3A1
+- Guess word does not need to specify a target
+- Use Game PIN: Only one entrypoint (Home), only ONE URL, no longer a need for routing
+- Merge join, and lobby
+- Allow hot joins with "retro-active loss", remove "spectation"
+    - Removed lobby list
+- Remove guess screen
+- To solve AFK: introduce a turn timeout on server
+- On refresh/navigation
+    - Send a remove-player request, removing the player
+    - OR, use websockets features
+- On refresh, simply render the Home screen... do NOT recall prior identity
+    - Game is totally "in-volatile-memory"
+```
+
 - Introduce typed Ids for client
-- Sanitize before sending session state in BE
-- Prevent double-guessing/concurrency issues
 
 ## Build and run
 
 ```
 npm start
-```
-
-## curl API commands
-
-### new-session
-
-```
-curl -d "" http://localhost:3000/new-session
-```
-
-
-### join-session
-
-```
-curl -d '{"sid":"5646a669-7092-43be-a6b6-b818ff7b5ce6", "name":"joji"}' -H "Content-Type: application/json" -X POST http://localhost:3000/join-session
-```
-
-### set-word
-
-```
-curl -d '{"sid":"5646a669-7092-43be-a6b6-b818ff7b5ce6", "pid":"8d6c276f-fc54-4c60-9617-9d8c78a91ae8", "word":"hey"}' -H "Content-Type: application/json" -X POST http://localhost:3000/set-word
 ```

@@ -2,42 +2,32 @@
 
 ## TODO
 
-- Do we need player ids - NO, using websockets
-- Async
-    - Locking is necessary! But also, stop listening to connections.
-    - We want all operations for each session to be synchronous
-    - Prevent double-guessing/concurrency issues
-- Socket.io
+- First, re-implement server using socket.io:
     - https://ellie-app.com/8yYgw7y7sM2a1
     - https://socket.io/docs/#Using-with-Express
-
-- Refine APIs w/r new design
-- Fix server first, completely.
+    - Removes need for player ids?
+    - Fixes end-game functionality (if necessary, refer to notes)
     - Server auto-kill dead sessions
-    - Sanitize before sending session state in BE
-    - Disallow set-word with numbers, etc
+    - Server auto remove disconnected players
+    - Allow hot joins with retro-active loss, remove spectation
+    - Integrate new game PIN functionality into API
 
-- End game is too ambiguous!
-    - Refer to notes!!
+## TODO later
 
-```
-- NEW: https://www.figma.com/file/duqoAy2jCyriuG03nRTxUJ/Hangmen?node-id=0%3A1
-- Use Game PIN: Only one entrypoint (Home), only ONE URL, no longer a need for routing
-- Merge join, and lobby
-- Allow hot joins with "retro-active loss", remove "spectation"
-    - Removed lobby list
-- Remove guess screen
-- To solve AFK: introduce a turn timeout on server
-- On refresh/navigation
-    - Send a remove-player request, removing the player
-    - OR, use websockets features
-- On refresh, simply render the Home screen... do NOT recall prior identity
-    - Game is totally "in-volatile-memory"
-```
-
+- Implement new FE
+    - (Probably not necessary due to websockets:) send remove-player request on
+      refresh/navigation
+    - On refresh, simply render the Home screen... do NOT recall prior identity,
+      game is "in-memory"
+    - Since we are using PIN and are no longer using invite links, there is no
+      need for routing, the only entry point is Home.
+- Mitigate AFK: introduce a turn timeout on server
+- Disallow set-word with numbers, etc
+- Sanitize before sending session state in BE
+- Use locks to prevent double-guessing, etc
 - Introduce typed Ids for client
 
-## Changes
+## Completed changes (update Eero about these)
 
 - Guess word does not need to specify a target
 
@@ -46,3 +36,7 @@
 ```
 npm start
 ```
+
+## Figma mockups
+
+https://www.figma.com/file/duqoAy2jCyriuG03nRTxUJ/Hangmen?node-id=0%3A1

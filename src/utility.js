@@ -1,15 +1,6 @@
-import uuid from 'uuid';
-import sha256 from 'crypto-js/sha256.js';
-import Base64 from 'crypto-js/enc-base64.js';
+const crypto = require('crypto')
 
-export function alphanumId() {
-  const length = 6;
-  let id;
-  do {
-    id = Base64
-          .stringify(sha256(uuid.v4()))
-          .replace(/\W/g, '')
-          .slice(0, length)
-  } while (id.length < length)
-  return id;
+// Random lowercase alphanumeric 6 character string
+function alphanumId() {
+    return parseInt(crypto.randomBytes(8).toString('hex'), 16).toString(36).slice(0, 6)
 }

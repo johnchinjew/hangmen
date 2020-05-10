@@ -95,7 +95,8 @@ type Msg
     | EditWord String
     | ClickedStartGame
       -- GAME
-    | GuessLetter String
+    | ClickedGuessLetter String
+    | ClickedPlayAgain
       -- POLLING
     | PollTick
     | ReceivedSession (Result Http.Error Session)
@@ -171,8 +172,18 @@ update msg model =
                     ( Lobby { l | pollingFailed = True }, Cmd.none )
 
         -- GAME
-        ( GuessLetter letter, Game g ) ->
+        ( ClickedGuessLetter letter, Game g ) ->
             ( model, Api.postGuessLetter { sid = g.session.sid, letter = letter } ReceivedWhatever )
+
+        ( ClickedPlayAgain, Game g ) ->
+            ( Lobby
+                { session = g.session
+                , pid = g.pid
+                , word = ""
+                , pollingFailed = False
+                }
+            , Cmd.none
+            )
 
         -- GAME POLLING
         ( PollTick, Game g ) ->
@@ -201,7 +212,7 @@ update msg model =
 
 pollInterval : Float
 pollInterval =
-    1500
+    700
 
 
 subscriptions : Model -> Sub Msg
@@ -210,8 +221,13 @@ subscriptions model =
         Lobby _ ->
             Time.every pollInterval (\_ -> PollTick)
 
-        Game _ ->
-            Time.every pollInterval (\_ -> PollTick)
+        Game g ->
+            case Session.status g.session of
+                Session.Playing ->
+                    Time.every pollInterval (\_ -> PollTick)
+
+                _ ->
+                    Sub.none
 
         _ ->
             Sub.none
@@ -294,35 +310,37 @@ view model =
                        ]
 
             Game g ->
-                [ Html.h2
-                    []
+                [ Html.h2 []
                     [ let
                         name =
                             case Session.turn g.session of
                                 Just turn ->
-                                    case Dict.get turn g.session.players of
-                                        Just player ->
-                                            player.name
-
-                                        Nothing ->
-                                            "Unknown"
+                                    Session.playerName turn g.session
 
                                 Nothing ->
                                     "Unknown"
                       in
                       case Session.status g.session of
                         Session.Winner pid ->
-                            Html.text <| name ++ " won!"
+                            Html.text (name ++ " won!")
 
                         Session.Draw ->
                             Html.text "Draw!"
 
                         Session.Playing ->
-                            Html.text <| name ++ "'s turn!"
+                            Html.text (name ++ "'s turn!")
                     ]
-                , viewPlayers g
-                , viewAlphabet g
                 ]
+                    ++ (case Session.status g.session of
+                            Session.Playing ->
+                                []
+
+                            _ ->
+                                [ Html.button [ Events.onClick ClickedPlayAgain ] [ Html.text "Play again!" ] ]
+                       )
+                    ++ [ viewPlayers g
+                       , viewAlphabet g
+                       ]
     }
 
 
@@ -371,10 +389,17 @@ viewAlphabet g =
                         (Tuple.second letter
                             || Session.turn g.session
                             /= Just g.pid
+                            || (case Session.status g.session of
+                                    Session.Playing ->
+                                        False
+
+                                    _ ->
+                                        True
+                               )
                         )
                      ]
                         ++ (if Session.turn g.session == Just g.pid then
-                                [ Events.onClick (GuessLetter (Tuple.first letter)) ]
+                                [ Events.onClick (ClickedGuessLetter (Tuple.first letter)) ]
 
                             else
                                 []

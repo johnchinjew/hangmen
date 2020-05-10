@@ -48,6 +48,16 @@ status session =
         Playing
 
 
+playerName : String -> Session -> String
+playerName pid session =
+    case Dict.get pid session.players of
+        Just player ->
+            player.name
+
+        Nothing ->
+            "Unknown"
+
+
 
 -- DECODERS
 

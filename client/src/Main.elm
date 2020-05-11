@@ -7,6 +7,7 @@ import Html.Attributes as Attributes
 import Html.Events as Events
 import Pin exposing (Pin)
 import Regex exposing (Regex)
+import Socket
 
 
 
@@ -87,9 +88,18 @@ update msg model =
             ( Home { h | word = word, error = False }, Cmd.none )
 
         ( ClickedStart, Home h ) ->
-            ( Home { h | error = not <| valid h }
-            , Cmd.none
-            )
+            if valid h then
+                ( Home { h | error = False }
+                , case h.start of
+                    Create ->
+                        Socket.openAndEmitCreateGame h.name h.word
+
+                    Join ->
+                        Cmd.none
+                )
+
+            else
+                ( Home { h | error = True }, Cmd.none )
 
         -- CATCHALL
         ( _, _ ) ->

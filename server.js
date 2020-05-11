@@ -22,19 +22,19 @@ app.use('/', express.static('client'))
 
 // const gpin = "fakegpin"
 
-// io.on('connection', (socket) => {
-//   socket.emit('welcome', 'welcome!');
-//   socket.on('create game', (id, name) => {
-//     console.log('Recieved create session request from', name)
-//     // Create new session LOL
-//     // Return data with sid
-//     // socket.to(id).emit('created game', gpin)
-//     socket.join(gpin)
-//     socket.emit('created game');
-//   });
+io.on('connection', (socket) => {
+  socket.emit('welcome', 'welcome!');
+  // socket.on('create game', (id, name) => {
+  //   console.log('Recieved create session request from', name)
+  //   // Create new session LOL
+  //   // Return data with sid
+  //   // socket.to(id).emit('created game', gpin)
+  //   socket.join(gpin)
+  //   socket.emit('created game');
+});
 
 //   // setTimeout(() => {
-//   //   socket.to(gpin).emit("room broadcast", "BROADCAST!!!!")
+//   //   io.in(gpin).emit("room broadcast", "BROADCAST!!!!")
 //   // }, 10000)
 // });
 

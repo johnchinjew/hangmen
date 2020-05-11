@@ -75,16 +75,16 @@ update msg model =
 
         -- HOME
         ( PickStart start, Home h ) ->
-            ( Home { h | start = start }, Cmd.none )
+            ( Home { h | start = start, error = False }, Cmd.none )
 
         ( ChangedPin pin, Home h ) ->
-            ( Home { h | pin = pin }, Cmd.none )
+            ( Home { h | pin = pin, error = False }, Cmd.none )
 
         ( ChangedName name, Home h ) ->
-            ( Home { h | name = name }, Cmd.none )
+            ( Home { h | name = name, error = False }, Cmd.none )
 
         ( ChangedWord word, Home h ) ->
-            ( Home { h | word = word }, Cmd.none )
+            ( Home { h | word = word, error = False }, Cmd.none )
 
         ( ClickedStart, Home h ) ->
             ( Home { h | error = not <| valid h }
@@ -201,7 +201,7 @@ view model =
                             []
                        )
                     ++ [ Html.button [ Events.onClick ClickedStart ] [ Html.text "Start" ]
-                       , Html.p [] [ Html.text "Created by Joeerohn." ]
+                       , Html.p [] [ Html.text "Created by Eero Gallano and John Chin-Jew." ]
                        ]
 
             _ ->

@@ -2,6 +2,7 @@
 
 ## TODO
 
+- Possibly refactor internal BE state
 - First, re-implement server using socket.io:
     - https://ellie-app.com/8yYgw7y7sM2a1
     - https://socket.io/docs/#Using-with-Express
@@ -26,10 +27,7 @@
 - Sanitize before sending session state in BE
 - Use locks to prevent double-guessing, etc
 - Introduce typed Ids for client
-
-## Completed changes (update Eero about these)
-
-- Guess word does not need to specify a target
+- A/B later: Guess word does not need to specify a target
 
 ## Build and run
 
@@ -40,3 +38,4 @@ npm start
 ## Figma mockups
 
 https://www.figma.com/file/duqoAy2jCyriuG03nRTxUJ/Hangmen?node-id=0%3A1
+https://www.figma.com/file/k5HFlWyDUscjIa4RKlPBji/Hangmen?node-id=0%3A1

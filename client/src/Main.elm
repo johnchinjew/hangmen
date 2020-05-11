@@ -2,16 +2,18 @@ module Main exposing (..)
 
 import Browser
 import Debug
-import Dict exposing (Dict)
 import Html exposing (Html)
 import Html.Attributes as Attributes
 import Html.Events as Events
+import Pin exposing (Pin)
+import Regex exposing (Regex)
 
 
 
 -- MAIN
 
 
+main : Program () Model Msg
 main =
     Browser.document
         { init = init
@@ -27,20 +29,26 @@ main =
 
 type Model
     = Home HomeData
+    | Game
 
 
 type alias HomeData =
-    { name : Maybe String, word : Maybe String, begin : Begin, pin : Maybe String }
+    { start : Start
+    , pin : String
+    , name : String
+    , word : String
+    , error : Bool
+    }
 
 
-type Begin
+type Start
     = Create
     | Join
 
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( Home { name = Nothing, word = Nothing, begin = Create, pin = Nothing }
+    ( Home <| HomeData Create "" "" "" False
     , Cmd.none
     )
 
@@ -52,11 +60,11 @@ init _ =
 type Msg
     = NoOp
       -- HOME
-    | PickedBegin Begin
+    | PickStart Start
     | ChangedPin String
     | ChangedName String
     | ChangedWord String
-    | ClickedGo
+    | ClickedStart
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -66,28 +74,57 @@ update msg model =
             ( model, Cmd.none )
 
         -- HOME
-        ( PickedBegin begin, Home h ) ->
-            ( Home { h | begin = begin }, Cmd.none )
+        ( PickStart start, Home h ) ->
+            ( Home { h | start = start }, Cmd.none )
 
         ( ChangedPin pin, Home h ) ->
-            ( Home { h | pin = Just pin }, Cmd.none )
+            ( Home { h | pin = pin }, Cmd.none )
 
         ( ChangedName name, Home h ) ->
-            ( Home { h | name = Just name }, Cmd.none )
+            ( Home { h | name = name }, Cmd.none )
 
         ( ChangedWord word, Home h ) ->
-            ( Home { h | word = Just word }, Cmd.none )
+            ( Home { h | word = word }, Cmd.none )
 
-        ( ClickedGo, Home _ ) ->
-            ( model
+        ( ClickedStart, Home h ) ->
+            ( Home { h | error = not <| valid h }
             , Cmd.none
             )
 
+        -- CATCHALL
+        ( _, _ ) ->
+            update NoOp model
 
 
--- CATCHALL
--- ( _, _ ) ->
---     update NoOp model
+valid : HomeData -> Bool
+valid h =
+    let
+        nameLength =
+            1 <= String.length h.name && String.length h.name <= 30
+
+        wordLength =
+            2 <= String.length h.word && String.length h.word <= 30
+
+        alphabeticWord =
+            alphabetic h.word
+
+        validPin =
+            h.start == Create || Pin.fromString h.pin /= Nothing
+    in
+    nameLength && wordLength && alphabeticWord && validPin
+
+
+letters : Regex
+letters =
+    Maybe.withDefault Regex.never <| Regex.fromString "^[a-zA-Z]+$"
+
+
+alphabetic : String -> Bool
+alphabetic string =
+    (String.length <| Regex.replaceAtMost 1 letters (\match -> "") string) == 0
+
+
+
 -- VIEW
 
 
@@ -99,46 +136,74 @@ view model =
             Home h ->
                 [ Html.h1 [] [ Html.text "Hangmen" ]
                 , Html.p []
-                    [ Html.text "Scalable hangman." ]
-                , radio
-                    [ Html.text "Create game" ]
-                    "begin"
-                    (h.begin == Create)
-                    (PickedBegin Create)
-                , radio
-                    [ Html.text "Join existing game"
-                    , Html.input [ Attributes.placeholder "Enter game PIN" ] []
+                    [ Html.text "Scalable hangman" ]
+                , Html.div []
+                    [ Html.input
+                        [ Attributes.type_ "radio"
+                        , Attributes.name "start"
+                        , Attributes.id "create"
+                        , Attributes.checked <| h.start == Create
+                        , Events.onInput <| \_ -> PickStart Create
+                        ]
+                        []
+                    , Html.label [ Attributes.for "create" ] [ Html.text "Create game" ]
                     ]
-                    "begin"
-                    (h.begin == Join)
-                    (PickedBegin Join)
-                , Html.br [] []
-                , Html.input
-                    [ Attributes.placeholder "Enter name"
-                    , Events.onInput ChangedName
+                , Html.div []
+                    [ Html.input
+                        [ Attributes.type_ "radio"
+                        , Attributes.name "start"
+                        , Attributes.id "join"
+                        , Attributes.checked <| h.start == Join
+                        , Events.onInput <| \_ -> PickStart Join
+                        ]
+                        []
+                    , Html.label [ Attributes.for "join" ] [ Html.text "Join existing game" ]
                     ]
-                    []
-                , Html.br [] []
-                , Html.input
-                    [ Attributes.placeholder "Choose word"
-                    , Events.onInput ChangedWord
-                    ]
-                    []
-                , Html.br [] []
-                , Html.button [ Events.onClick ClickedGo ] [ Html.text "Go" ]
                 ]
+                    ++ (if h.start == Join then
+                            [ Html.p []
+                                [ Html.text "Game PIN: "
+                                , Html.input
+                                    [ Attributes.placeholder "Enter game PIN"
+                                    , Attributes.value h.pin
+                                    , Events.onInput ChangedPin
+                                    ]
+                                    []
+                                ]
+                            ]
+
+                        else
+                            []
+                       )
+                    ++ [ Html.p []
+                            [ Html.text "Name: "
+                            , Html.input
+                                [ Attributes.placeholder "Enter name"
+                                , Attributes.value h.name
+                                , Events.onInput ChangedName
+                                ]
+                                []
+                            ]
+                       , Html.p []
+                            [ Html.text "Word: "
+                            , Html.input
+                                [ Attributes.placeholder "Choose word"
+                                , Attributes.value h.word
+                                , Events.onInput ChangedWord
+                                ]
+                                []
+                            ]
+                       ]
+                    ++ (if h.error then
+                            [ Html.p [] [ Html.text "Invalid input. Fix and try again." ] ]
+
+                        else
+                            []
+                       )
+                    ++ [ Html.button [ Events.onClick ClickedStart ] [ Html.text "Start" ]
+                       , Html.p [] [ Html.text "Created by Joeerohn." ]
+                       ]
+
+            _ ->
+                [ Html.text "not implemented" ]
     }
-
-
-radio : List (Html msg) -> String -> Bool -> msg -> Html msg
-radio label group checked changed =
-    Html.div []
-        ((Html.input
-            [ Attributes.type_ "radio"
-            , Attributes.name group
-            , Attributes.checked checked
-            , Events.onClick changed
-            ]
-            [])
-            :: label
-        )

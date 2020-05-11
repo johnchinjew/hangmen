@@ -23,11 +23,11 @@
     - Since we are using PIN and are no longer using invite links, there is no
       need for routing, the only entry point is Home.
 - Mitigate AFK: introduce a turn timeout on server
-- Disallow set-word with numbers, etc
+- Disallow set-word with numbers, etc on BE
 - Sanitize before sending session state in BE
 - Use locks to prevent double-guessing, etc
-- Introduce typed Ids for client
 - A/B later: Guess word does not need to specify a target
+- Improve form error messages on FE
 
 ## Build and run
 

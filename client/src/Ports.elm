@@ -7,4 +7,4 @@ import Json.Encode as Encode
 port toSocket : Encode.Value -> Cmd msg
 
 
-port fromSocket : Decode.Value -> Cmd msg
+port fromSocket : (Decode.Value -> msg) -> Sub msg

@@ -5,8 +5,11 @@ import Debug
 import Html exposing (Html)
 import Html.Attributes as Attributes
 import Html.Events as Events
+import Json.Decode as Decode
 import Pin exposing (Pin)
+import Ports
 import Regex exposing (Regex)
+import Session exposing (Session)
 import Socket
 
 
@@ -20,7 +23,7 @@ main =
         { init = init
         , update = update
         , view = view
-        , subscriptions = \_ -> Sub.none
+        , subscriptions = subscriptions
         }
 
 
@@ -30,7 +33,7 @@ main =
 
 type Model
     = Home HomeData
-    | Game
+    | Game Session
 
 
 type alias HomeData =
@@ -66,6 +69,7 @@ type Msg
     | ChangedName String
     | ChangedWord String
     | ClickedStart
+    | OnGameUpdate Session
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -92,14 +96,19 @@ update msg model =
                 ( Home { h | error = False }
                 , case h.start of
                     Create ->
-                        Socket.openAndEmitCreateGame h.name h.word
+                        Socket.emitCreateGame h.name h.word
 
                     Join ->
-                        Cmd.none
+                        Socket.emitJoinGame h.pin h.name h.word
                 )
 
             else
                 ( Home { h | error = True }, Cmd.none )
+
+        ( OnGameUpdate game, Home h ) ->
+            ( Game game |> Debug.log "received game!"
+            , Cmd.none
+            )
 
         -- CATCHALL
         ( _, _ ) ->
@@ -132,6 +141,28 @@ letters =
 alphabetic : String -> Bool
 alphabetic string =
     (String.length <| Regex.replaceAtMost 1 letters (\match -> "") string) == 0
+
+
+
+-- SUBSCRIPTIONS
+
+
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    case model of
+        Home h ->
+            Ports.fromSocket
+                (\value ->
+                    case Decode.decodeValue Session.decode value of
+                        Ok session ->
+                            OnGameUpdate session
+
+                        Err _ ->
+                            NoOp |> Debug.log "uh oh"
+                )
+
+        _ ->
+            Sub.none
 
 
 

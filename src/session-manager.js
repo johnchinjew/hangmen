@@ -3,14 +3,14 @@ import { Session } from './session.js'
 export function SessionManager() {
   this.sessions = {}
 
-  this.createSession = function() {
+  this.createSession = function () {
     const newSession = new Session()
-    const newId = newSession.getId()
-    this.sessions[newId] = newSession
-    return newId
+    const newPin = newSession.getPin()
+    this.sessions[newPin] = newSession
+    return newPin
   }
 
-  this.getSession = function(sid) {
-    return this.sessions[sid]
+  this.getSession = function (pin) {
+    return this.sessions[pin]
   }
 }

@@ -5,7 +5,7 @@ import Json.Decode as Decode
 
 
 type alias Player =
-    { id : String
+    { pin : String
     , name : String
     , word : String
     , ready : Bool
@@ -20,7 +20,7 @@ type alias Player =
 decode : Decode.Decoder Player
 decode =
     Decode.map5 Player
-        (Decode.field "id" Decode.string)
+        (Decode.field "pin" Decode.string)
         (Decode.field "name" Decode.string)
         (Decode.field "word" Decode.string)
         (Decode.field "ready" Decode.bool)

@@ -1,4 +1,4 @@
-import { alphanumId } from './utility.js'
+import { pin } from './pin.js'
 import { Player } from './player.js'
 import { Alphabet } from './alphabet.js'
 
@@ -18,14 +18,14 @@ function shuffle(a) {
 }
 
 export function Session() {
-  this.id = alphanumId()
+  this.pin = pin()
   this.players = {}
   this.turnOrder = []
   this.alphabet = new Alphabet()
   this.isLobby = true
 
-  this.getId = function () {
-    return this.id
+  this.getPin = function () {
+    return this.pin
   }
 
   this.addPlayer = function (name) {
@@ -33,9 +33,9 @@ export function Session() {
     if (!this.isLobby) {
       newPlayer.isAlive = false
     }
-    const newId = newPlayer.getId()
-    this.players[newId] = newPlayer
-    return newId
+    const newPin = newPlayer.getPin()
+    this.players[newPin] = newPlayer
+    return newPin
   }
 
   this._killPlayer = function (pid) {
@@ -115,13 +115,13 @@ export function Session() {
       const target = this.players[pid]
 
       if (word === target.getWord()) {
-        this._killPlayer(target.getId())
+        this._killPlayer(target.getPin())
         suddenDeath = false
       }
     }
 
     if (suddenDeath)
-        this._killPlayer(guesser.getId())
+      this._killPlayer(guesser.getPin())
 
     if (!this._checkGameOver() && guesser.isAlive()) {
       this._progressTurn()

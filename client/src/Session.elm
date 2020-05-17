@@ -7,7 +7,7 @@ import Player exposing (Player)
 
 
 type alias Session =
-    { sid : String
+    { pin : String
     , players : Dict String Player
     , turnOrder : List String
     , alphabet : Alphabet
@@ -65,7 +65,7 @@ playerName pid session =
 decode : Decode.Decoder Session
 decode =
     Decode.map5 Session
-        (Decode.field "id" Decode.string)
+        (Decode.field "pin" Decode.string)
         (Decode.field "players" <| Decode.dict Player.decode)
         (Decode.field "turnOrder" <| Decode.list Decode.string)
         (Decode.field "alphabet" Alphabet.decode)

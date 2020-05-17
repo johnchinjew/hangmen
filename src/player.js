@@ -1,34 +1,34 @@
-import { alphanumId } from './utility.js'
+import { pin } from './pin.js'
 
 export function Player(name) {
-  this.id = alphanumId()
+  this.pin = pin()
   this.name = name
   this.word = ""
   this.ready = false
   this.alive = true
 
-  this.getId = function() {
-    return this.id
+  this.getPin = function () {
+    return this.pin
   }
 
-  this.getWord = function() {
+  this.getWord = function () {
     return this.word
   }
 
-  this.isReady = function() {
+  this.isReady = function () {
     return this.ready
   }
 
-  this.isAlive = function() {
+  this.isAlive = function () {
     return this.alive
   }
 
-  this.setWordAndReady = function(word) {
+  this.setWordAndReady = function (word) {
     this.word = word
     this.ready = true
   }
 
-  this.kill = function() {
+  this.kill = function () {
     this.alive = false
   }
 }

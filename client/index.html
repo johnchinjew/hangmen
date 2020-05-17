@@ -1,36 +1,30 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <meta charset="utf-8">
-        <title>Hangmen</title>
-        <script src="./client.js"></script>
-        <script src="/socket.io/socket.io.js"></script>
-    </head>
-    <body>
-        <script>
+
+<head>
+    <meta charset="utf-8">
+    <title>Hangmen</title>
+    <script src="./client.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+
+<body>
+    <script>
         const app = Elm.Main.init();
+        const socket = io(); // TODO: Detect connection error
 
         app.ports.toSocket.subscribe((event) => {
-            console.log(event)
-
-            const socket = io();
-
-            // TODO: Detect connection error
-
-            socket.on('welcome', (msg) => {
-              console.log(msg);
-            });
+            if (event.tag == 'create-game')
+                socket.emit(event.tag, event.name, event.word)
+            else if (event.tag == 'join-game')
+                socket.emit(event.tag, event.pin, event.name, event.word)
         });
 
-        // socket.on('welcome', (msg) => {
-        //   console.log(msg);
-        //   socket.emit('create game', socket.id, 'Jeerohnathonson');
-        // });
-        // socket.on('created game', () => {
-        //   console.log('joined')
-        //   // socket.join(gpin);
-        // });
-        // socket.on('room broadcast', console.log);
-        </script>
-    </body>
+        socket.on('game-update', (game) => {
+            console.log('game-update')
+            app.ports.fromSocket.send(game)
+        });
+    </script>
+</body>
+
 </html>

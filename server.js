@@ -31,6 +31,7 @@ io.on('connection', (socket) => {
         socket.join(sessionPin)
         playerPin = session.addPlayer(name)
         // TODO: also deliver pid in game-update
+        io.to(socket.id).emit('join-successful', playerPin)
         io.to(sessionPin).emit('game-update', session)
     });
     socket.on('join-game', (pin, name) => {
@@ -45,11 +46,30 @@ io.on('connection', (socket) => {
         playerPin = session.addPlayer(name)
         socket.join(sessionPin)
         // TODO: also deliver pid in game-update
+        io.to(socket.id).emit('join-successful', playerPin)
         io.to(sessionPin).emit('game-update', session)
     });
     socket.on('start-game', (word) => {
         console.log('start-game', word)
         session.setPlayerWord(playerPin, word)
+        io.to(sessionPin).emit('game-update', session)
+    });
+    socket.on('guess-letter', (letter) => {
+        console.log('guess-letter', letter)
+        if (playerPin !== session.currentPlayerPin()) {
+            console.log(`${playerPin} attempted out-of-order guess-turn`)
+            return
+        }
+        session.guessLetter(letter)
+        io.to(sessionPin).emit('game-update', session)
+    });
+    socket.on('guess-word', (pin, word) => {
+        console.log('guess-word', word, target)
+        if (playerPin !== session.currentPlayerPin()) {
+            console.log(`${playerPin} attempted out-of-order guess-word`)
+            return
+        }
+        session.guessWord(pin, word)
         io.to(sessionPin).emit('game-update', session)
     });
     // setInterval(() => {=

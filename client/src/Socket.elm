@@ -41,6 +41,27 @@ emitStartGame word =
         )
 
 
+emitGuessLetter : String -> Cmd msg
+emitGuessLetter letter =
+    Ports.toSocket
+        (Encode.object
+            [ ( "tag", Encode.string "guess-letter" )
+            , ( "letter", Encode.string letter )
+            ]
+        )
+
+
+emitGuessWord : String -> String -> Cmd msg
+emitGuessWord pin word =
+    Ports.toSocket
+        (Encode.object
+            [ ( "tag", Encode.string "guess-word" )
+            , ( "pin", Encode.string pin )
+            , ( "word", Encode.string word )
+            ]
+        )
+
+
 
 -- INBOUND
 -- onGameUpdate : (Decode.Value -> msg) -> Sub msg

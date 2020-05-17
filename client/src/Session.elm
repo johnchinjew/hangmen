@@ -38,8 +38,8 @@ status session =
     in
     if gameover then
         case List.head session.turnOrder of
-            Just pid ->
-                Winner pid
+            Just playerPin ->
+                Winner playerPin
 
             Nothing ->
                 Draw

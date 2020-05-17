@@ -100,28 +100,24 @@ export function Session() {
     if (!this._checkGameOver() && guesser.isAlive()) this._progressTurn()
   }
 
+  this.currentPlayerPin = function () {
+    return this.turnOrder[0]
+  }
+
   this._currentPlayer = function () {
     return this.players[this.turnOrder[0]]
   }
 
-  this.guessWord = function (word) {
+  this.guessWord = function (pin, word) {
     if (this.isLobby || this._checkGameOver()) return
 
+    const target = this.players[pin]
     const guesser = this._currentPlayer()
 
-    let suddenDeath = true
+    if (!target.isAlive() || target.getId() === guesser.getId()) return
 
-    for (const pid in this.players) {
-      const target = this.players[pid]
-
-      if (word === target.getWord()) {
-        this._killPlayer(target.getPin())
-        suddenDeath = false
-      }
-    }
-
-    if (suddenDeath)
-      this._killPlayer(guesser.getPin())
+    if (word === target.getWord()) this._killPlayer(target.getId())
+    else this._killPlayer(guesser.getId())
 
     if (!this._checkGameOver() && guesser.isAlive()) {
       this._progressTurn()
@@ -132,7 +128,7 @@ export function Session() {
     let gameOver = true
     for (const pid in this.players) {
       const player = this.players[pid]
-      if (pid !== this.turnOrder[0] && player.isAlive()) gameOver = false
+      if (pid !== this.currentPlayerPin() && player.isAlive()) gameOver = false
     }
     return gameOver
   }

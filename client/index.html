@@ -20,12 +20,21 @@
                 socket.emit(event.tag, event.pin, event.name)
             else if (event.tag == 'start-game')
                 socket.emit(event.tag, event.word)
+            else if (event.tag == 'guess-letter')
+                socket.emit(event.tag, event.latter)
+            else if (event.tag == 'guess-word')
+                socket.emit(event.tag, event.pin, event.word)
         });
 
         socket.on('game-update', (game) => {
             console.log('game-update')
             app.ports.fromSocket.send(game)
         });
+
+        socket.on('join-successful', (pid) => {
+            console.log('join-successful')
+            app.ports.fromSocket.send(pid)
+        })
     </script>
 </body>
 

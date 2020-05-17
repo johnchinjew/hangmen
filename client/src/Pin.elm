@@ -1,4 +1,4 @@
-module Pin exposing (Pin, fromString, toString)
+module Pin exposing (Pin, fromString, toString, valid)
 
 import Regex exposing (Regex)
 

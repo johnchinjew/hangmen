@@ -1,5 +1,6 @@
 module Main exposing (..)
 
+import Alphabet exposing (Alphabet)
 import Browser
 import Debug
 import Dict exposing (Dict)
@@ -35,22 +36,29 @@ main =
 type Model
     = Home HomeData
     | Lobby LobbyData
-    | Game Session
-
-
-type alias LobbyData =
-    { session : Session
-    , word : String
-    , connectivityIssues : Bool
-    }
+    | Game GameData
 
 
 type alias HomeData =
     { start : Start
     , pin : String
+    , playerPin : String
     , name : String
+    , session : Maybe Session
     , error : Bool
     }
+
+
+type alias LobbyData =
+    { session : Session
+    , playerPin : String
+    , word : String
+    , connectivityIssues : Bool
+    }
+
+
+type alias GameData =
+    { session : Session, playerPin : String }
 
 
 type Start
@@ -60,7 +68,7 @@ type Start
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( Home <| HomeData Create "" "" False
+    ( Home <| HomeData Create "" "" "" Nothing False
     , Cmd.none
     )
 
@@ -76,9 +84,12 @@ type Msg
     | ChangedPin String
     | ChangedName String
     | ClickedStart
+    | JoinSuccessful String
       -- LOBBY
     | ChangedWord String
     | ClickedStartGame
+      -- GAME
+    | ClickedGuessLetter String
       -- SERVER
     | OnGameUpdate Session
 
@@ -113,10 +124,28 @@ update msg model =
             else
                 ( Home { h | error = True }, Cmd.none )
 
+        ( JoinSuccessful playerPin, Home h ) ->
+            case h.session of
+                Nothing ->
+                    ( Home { h | playerPin = playerPin }
+                    , Cmd.none
+                    )
+
+                Just session ->
+                    ( Lobby (LobbyData session playerPin "" False)
+                    , Cmd.none
+                    )
+
         ( OnGameUpdate game, Home h ) ->
-            ( Lobby (LobbyData game "" False) |> Debug.log "received game!"
-            , Cmd.none
-            )
+            if Pin.valid h.playerPin then
+                ( Lobby (LobbyData game h.playerPin "" False) |> Debug.log "received game!"
+                , Cmd.none
+                )
+
+            else
+                ( Home { h | session = Just game } |> Debug.log "received game!"
+                , Cmd.none
+                )
 
         -- LOBBY
         ( ChangedWord word, Lobby l ) ->
@@ -126,7 +155,22 @@ update msg model =
             ( model, Socket.emitStartGame l.word )
 
         ( OnGameUpdate game, Lobby l ) ->
-            ( Lobby { l | session = game } |> Debug.log "received game!"
+            if not game.isLobby then
+                ( Game (GameData game l.playerPin) |> Debug.log "received game!"
+                , Cmd.none
+                )
+
+            else
+                ( Lobby { l | session = game } |> Debug.log "received game!"
+                , Cmd.none
+                )
+
+        -- GAME
+        ( ClickedGuessLetter letter, Game g ) ->
+            ( model, Socket.emitGuessLetter letter )
+
+        ( OnGameUpdate game, Game g ) ->
+            ( Game { g | session = game } |> Debug.log "received game!"
             , Cmd.none
             )
 
@@ -168,15 +212,26 @@ alphabetic string =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Ports.fromSocket
-        (\value ->
-            case Decode.decodeValue Session.decode value of
-                Ok session ->
-                    OnGameUpdate session
+    Sub.batch
+        [ Ports.fromSocket
+            (\value ->
+                case Decode.decodeValue Session.decode value of
+                    Ok session ->
+                        OnGameUpdate session
 
-                Err _ ->
-                    NoOp |> Debug.log "uh oh"
-        )
+                    Err _ ->
+                        NoOp |> Debug.log "failed to decode session"
+            )
+        , Ports.fromSocket
+            (\playerPin ->
+                case Decode.decodeValue Decode.string playerPin of
+                    Ok playerPin_ ->
+                        JoinSuccessful playerPin_  Debug.log "join decoded!"
+
+                    Err _ ->
+                        NoOp |> Debug.log "failed to decode playerPin"
+            )
+        ]
 
 
 
@@ -300,6 +355,103 @@ view model =
                             ]
                        ]
 
-            _ ->
-                [ Html.text "not implemented" ]
+            Game g ->
+                [ Html.h2 []
+                    [ let
+                        name =
+                            case Session.turn g.session of
+                                Just turn ->
+                                    Session.playerName turn g.session
+
+                                Nothing ->
+                                    "Unknown"
+                      in
+                      case Session.status g.session of
+                        Session.Winner pid ->
+                            Html.text (name ++ " won!")
+
+                        Session.Draw ->
+                            Html.text "Draw!"
+
+                        Session.Playing ->
+                            Html.text (name ++ "'s turn!")
+                    ]
+                ]
+                    ++ (case Session.status g.session of
+                            Session.Playing ->
+                                []
+
+                            _ ->
+                                [ Html.button [ Events.onClick NoOp ] [ Html.text "Play again!" ] ]
+                       )
+                    ++ [ viewPlayers g
+                       , viewAlphabet g
+                       ]
     }
+
+
+viewPlayers : GameData -> Html Msg
+viewPlayers g =
+    Html.div []
+        (List.map
+            (\player ->
+                Html.p []
+                    [ Html.text
+                        (player.name
+                            ++ ": "
+                            ++ wordSoFar player.word g.session.alphabet
+                        )
+                    ]
+            )
+            (Dict.values g.session.players)
+        )
+
+
+wordSoFar : String -> Alphabet -> String
+wordSoFar word alphabet =
+    String.map
+        (\char ->
+            case Dict.get (String.fromChar char) alphabet.letters of
+                Just isSet ->
+                    if isSet then
+                        char
+
+                    else
+                        '_ '
+
+                Nothing ->
+                    '_ '
+        )
+        word
+
+
+viewAlphabet : GameData -> Html Msg
+viewAlphabet g =
+    Html.p []
+        (List.map
+            (\letter ->
+                Html.button
+                    ([ Attributes.disabled
+                        (Tuple.second letter
+                            || Session.turn g.session
+                            /= Just g.playerPin
+                            || (case Session.status g.session of
+                                    Session.Playing ->
+                                        False
+
+                                    _ ->
+                                        True
+                               )
+                        )
+                     ]
+                        ++ (if Session.turn g.session == Just g.playerPin then
+                                [ Events.onClick (ClickedGuessLetter (Tuple.first letter)) ]
+
+                            else
+                                []
+                           )
+                    )
+                    [ Html.text <| Tuple.first letter ]
+            )
+            (Dict.toList g.session.alphabet.letters)
+        )

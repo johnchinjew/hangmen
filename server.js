@@ -17,30 +17,42 @@ app.use('/', express.static('client'))
 const sessionManager = new SessionManager()
 
 io.on('connection', (socket) => {
-    socket.on('create-game', (name, word) => {
-        console.log('create-game', name, word)
-        const newPin = sessionManager.createSession();
-        console.log(`created game ${newPin}`)
-        const session = sessionManager.getSession(newPin)
-        socket.join(newPin)
-        const newId = session.addPlayer(name)
+
+    let session = null
+    let sessionPin = null
+    let playerPin = null
+
+
+    socket.on('create-game', (name) => {
+        console.log('create-game', name)
+        sessionPin = sessionManager.createSession();
+        console.log(`created game ${sessionPin}`)
+        session = sessionManager.getSession(sessionPin)
+        socket.join(sessionPin)
+        playerPin = session.addPlayer(name)
         // TODO: also deliver pid in game-update
-        io.to(newPin).emit('game-update', session)
+        io.to(sessionPin).emit('game-update', session)
     });
-    socket.on('join-game', (pin, name, word) => {
-        console.log('join-game', pin, name, word)
-        socket.join(pin)
-        const session = sessionManager.getSession(pin);
-        console.log(`join this session: ${session}`)
+    socket.on('join-game', (pin, name) => {
+        console.log('join-game', pin, name)
+        sessionPin = pin
+        session = sessionManager.getSession(pin);
         if (!session) {
-            console.log(`session ${pin} DNE`)
+            console.log(`failed to join game ${sessionPin}`)
             return
         }
-        const newId = session.addPlayer(name)
+        console.log(`joined game ${sessionPin}`)
+        playerPin = session.addPlayer(name)
+        socket.join(sessionPin)
         // TODO: also deliver pid in game-update
-        io.to(pin).emit('game-update', session)
+        io.to(sessionPin).emit('game-update', session)
     });
-    // setInterval(() => {
+    socket.on('start-game', (word) => {
+        console.log('start-game', word)
+        session.setPlayerWord(playerPin, word)
+        io.to(sessionPin).emit('game-update', session)
+    });
+    // setInterval(() => {=
     //     console.log(gpin)
     //     if (gpin !== null)
     //         io.to(gpin).emit('game-update', 'game')

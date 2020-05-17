@@ -10,24 +10,32 @@ import Session exposing (Session)
 -- OUTBOUND
 
 
-emitCreateGame : String -> String -> Cmd msg
-emitCreateGame name word =
+emitCreateGame : String -> Cmd msg
+emitCreateGame name =
     Ports.toSocket
         (Encode.object
             [ ( "tag", Encode.string "create-game" )
             , ( "name", Encode.string name )
-            , ( "word", Encode.string word )
             ]
         )
 
 
-emitJoinGame : String -> String -> String -> Cmd msg
-emitJoinGame pin name word =
+emitJoinGame : String -> String -> Cmd msg
+emitJoinGame pin name =
     Ports.toSocket
         (Encode.object
             [ ( "tag", Encode.string "join-game" )
             , ( "pin", Encode.string pin )
             , ( "name", Encode.string name )
+            ]
+        )
+
+
+emitStartGame : String -> Cmd msg
+emitStartGame word =
+    Ports.toSocket
+        (Encode.object
+            [ ( "tag", Encode.string "start-game" )
             , ( "word", Encode.string word )
             ]
         )

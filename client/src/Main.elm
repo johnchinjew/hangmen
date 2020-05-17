@@ -2,6 +2,7 @@ module Main exposing (..)
 
 import Browser
 import Debug
+import Dict exposing (Dict)
 import Html exposing (Html)
 import Html.Attributes as Attributes
 import Html.Events as Events
@@ -33,14 +34,21 @@ main =
 
 type Model
     = Home HomeData
+    | Lobby LobbyData
     | Game Session
+
+
+type alias LobbyData =
+    { session : Session
+    , word : String
+    , connectivityIssues : Bool
+    }
 
 
 type alias HomeData =
     { start : Start
     , pin : String
     , name : String
-    , word : String
     , error : Bool
     }
 
@@ -52,7 +60,7 @@ type Start
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( Home <| HomeData Create "" "" "" False
+    ( Home <| HomeData Create "" "" False
     , Cmd.none
     )
 
@@ -67,8 +75,11 @@ type Msg
     | PickStart Start
     | ChangedPin String
     | ChangedName String
-    | ChangedWord String
     | ClickedStart
+      -- LOBBY
+    | ChangedWord String
+    | ClickedStartGame
+      -- SERVER
     | OnGameUpdate Session
 
 
@@ -88,25 +99,34 @@ update msg model =
         ( ChangedName name, Home h ) ->
             ( Home { h | name = name, error = False }, Cmd.none )
 
-        ( ChangedWord word, Home h ) ->
-            ( Home { h | word = word, error = False }, Cmd.none )
-
         ( ClickedStart, Home h ) ->
             if valid h then
                 ( Home { h | error = False }
                 , case h.start of
                     Create ->
-                        Socket.emitCreateGame h.name h.word
+                        Socket.emitCreateGame h.name
 
                     Join ->
-                        Socket.emitJoinGame h.pin h.name h.word
+                        Socket.emitJoinGame h.pin h.name
                 )
 
             else
                 ( Home { h | error = True }, Cmd.none )
 
         ( OnGameUpdate game, Home h ) ->
-            ( Game game |> Debug.log "received game!"
+            ( Lobby (LobbyData game "" False) |> Debug.log "received game!"
+            , Cmd.none
+            )
+
+        -- LOBBY
+        ( ChangedWord word, Lobby l ) ->
+            ( Lobby { l | word = word }, Cmd.none )
+
+        ( ClickedStartGame, Lobby l ) ->
+            ( model, Socket.emitStartGame l.word )
+
+        ( OnGameUpdate game, Lobby l ) ->
+            ( Lobby { l | session = game } |> Debug.log "received game!"
             , Cmd.none
             )
 
@@ -121,16 +141,15 @@ valid h =
         nameLength =
             1 <= String.length h.name && String.length h.name <= 30
 
-        wordLength =
-            2 <= String.length h.word && String.length h.word <= 30
-
-        alphabeticWord =
-            alphabetic h.word
-
+        -- Leave this here until we use it into the Lobby UI
+        -- wordLength =
+        --     2 <= String.length h.word && String.length h.word <= 30
+        -- alphabeticWord =
+        --     alphabetic h.word
         validPin =
             h.start == Create || Pin.fromString h.pin /= Nothing
     in
-    nameLength && wordLength && alphabeticWord && validPin
+    nameLength && validPin
 
 
 letters : Regex
@@ -149,20 +168,15 @@ alphabetic string =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    case model of
-        Home h ->
-            Ports.fromSocket
-                (\value ->
-                    case Decode.decodeValue Session.decode value of
-                        Ok session ->
-                            OnGameUpdate session
+    Ports.fromSocket
+        (\value ->
+            case Decode.decodeValue Session.decode value of
+                Ok session ->
+                    OnGameUpdate session
 
-                        Err _ ->
-                            NoOp |> Debug.log "uh oh"
-                )
-
-        _ ->
-            Sub.none
+                Err _ ->
+                    NoOp |> Debug.log "uh oh"
+        )
 
 
 
@@ -225,15 +239,16 @@ view model =
                                 ]
                                 []
                             ]
-                       , Html.p []
-                            [ Html.text "Word: "
-                            , Html.input
-                                [ Attributes.placeholder "Choose word"
-                                , Attributes.value h.word
-                                , Events.onInput ChangedWord
-                                ]
-                                []
-                            ]
+
+                       --    , Html.p []
+                       --         [ Html.text "Word: "
+                       --         , Html.input
+                       --             [ Attributes.placeholder "Choose word"
+                       --             , Attributes.value h.word
+                       --             , Events.onInput ChangedWord
+                       --             ]
+                       --             []
+                       --         ]
                        ]
                     ++ (if h.error then
                             [ Html.p [] [ Html.text "Invalid input. Fix and try again." ] ]
@@ -243,6 +258,46 @@ view model =
                        )
                     ++ [ Html.button [ Events.onClick ClickedStart ] [ Html.text "Start" ]
                        , Html.p [] [ Html.text "Created by Eero Gallano and John Chin-Jew." ]
+                       ]
+
+            Lobby l ->
+                (if l.connectivityIssues then
+                    [ Html.h2 [] [ Html.text "Experiencing connectivity issues..." ] ]
+
+                 else
+                    []
+                )
+                    ++ [ Html.h2 []
+                            [ Html.text ("Lobby: " ++ l.session.pin) ]
+                       , Html.h3 []
+                            [ Html.text "Players:" ]
+                       , Html.ul []
+                            (List.map
+                                (\player ->
+                                    Html.li []
+                                        [ Html.text <|
+                                            player.name
+                                                ++ ": "
+                                                ++ (if player.ready then
+                                                        "Ready"
+
+                                                    else
+                                                        "Not ready"
+                                                   )
+                                        ]
+                                )
+                                (Dict.values l.session.players)
+                            )
+                       , Html.p []
+                            [ Html.text "Pick word:"
+                            , Html.input
+                                [ Events.onInput ChangedWord
+                                ]
+                                []
+                            , Html.button
+                                [ Events.onClick ClickedStartGame ]
+                                [ Html.text "Start game" ]
+                            ]
                        ]
 
             _ ->

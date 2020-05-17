@@ -15,9 +15,11 @@
 
         app.ports.toSocket.subscribe((event) => {
             if (event.tag == 'create-game')
-                socket.emit(event.tag, event.name, event.word)
+                socket.emit(event.tag, event.name)
             else if (event.tag == 'join-game')
-                socket.emit(event.tag, event.pin, event.name, event.word)
+                socket.emit(event.tag, event.pin, event.name)
+            else if (event.tag == 'start-game')
+                socket.emit(event.tag, event.word)
         });
 
         socket.on('game-update', (game) => {

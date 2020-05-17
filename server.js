@@ -64,13 +64,19 @@ io.on('connection', (socket) => {
         io.to(sessionPin).emit('game-update', session)
     });
     socket.on('guess-word', (pin, word) => {
-        console.log('guess-word', word, target)
+        console.log('guess-word', pin, word)
         if (playerPin !== session.currentPlayerPin()) {
             console.log(`${playerPin} attempted out-of-order guess-word`)
             return
         }
         session.guessWord(pin, word)
         io.to(sessionPin).emit('game-update', session)
+    });
+    socket.on('reset-session', () => {
+
+    });
+    socket.on('exit-session', () => {
+
     });
     // setInterval(() => {=
     //     console.log(gpin)

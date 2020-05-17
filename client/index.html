@@ -21,7 +21,7 @@
             else if (event.tag == 'start-game')
                 socket.emit(event.tag, event.word)
             else if (event.tag == 'guess-letter')
-                socket.emit(event.tag, event.latter)
+                socket.emit(event.tag, event.letter)
             else if (event.tag == 'guess-word')
                 socket.emit(event.tag, event.pin, event.word)
         });

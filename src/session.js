@@ -30,11 +30,11 @@ export function Session() {
 
   this.addPlayer = function (name) {
     const newPlayer = new Player(name)
-    if (!this.isLobby) {
-      newPlayer.isAlive = false
-    }
     const newPin = newPlayer.getPin()
     this.players[newPin] = newPlayer
+    if (!this.isLobby) {
+      this.turnOrder.push(newPin)
+    }
     return newPin
   }
 
@@ -54,7 +54,7 @@ export function Session() {
   }
 
   this.setPlayerWord = function (pid, word) {
-    if (!this.isLobby) return
+    // if (!this.isLobby) return    // Removed to permit hotjoins
 
     const player = this.players[pid]
 
@@ -97,7 +97,8 @@ export function Session() {
     }
 
     const guesser = this._currentPlayer()
-    if (!this._checkGameOver() && guesser.isAlive()) this._progressTurn()
+    if (!this._checkGameOver() && guesser.isAlive()) 
+      this._progressTurn()
   }
 
   this.currentPlayerPin = function () {
@@ -109,15 +110,18 @@ export function Session() {
   }
 
   this.guessWord = function (pin, word) {
-    if (this.isLobby || this._checkGameOver()) return
+    if (this.isLobby || this._checkGameOver()) 
+      return
 
     const target = this.players[pin]
     const guesser = this._currentPlayer()
 
-    if (!target.isAlive() || target.getId() === guesser.getId()) return
+    if (!target.isAlive() || target.getPin() === guesser.getPin()) return
 
-    if (word === target.getWord()) this._killPlayer(target.getId())
-    else this._killPlayer(guesser.getId())
+    if (word === target.getWord()) 
+      this._killPlayer(target.getPin())
+    else 
+      this._killPlayer(guesser.getPin())
 
     if (!this._checkGameOver() && guesser.isAlive()) {
       this._progressTurn()
@@ -126,9 +130,10 @@ export function Session() {
 
   this._checkGameOver = function () {
     let gameOver = true
-    for (const pid in this.players) {
-      const player = this.players[pid]
-      if (pid !== this.currentPlayerPin() && player.isAlive()) gameOver = false
+    for (const pin in this.players) {
+      const player = this.players[pin]
+      if (pin !== this.currentPlayerPin() && player.isAlive()) 
+        gameOver = false
     }
     return gameOver
   }

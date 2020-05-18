@@ -450,7 +450,12 @@ viewPlayers g =
                             ++ " "
                             ++ player.name
                             ++ ": "
-                            ++ wordSoFar player.word g.session.alphabet
+                            ++ 
+                            (if not player.alive then 
+                                player.word
+                            else 
+                                wordSoFar player.word g.session.alphabet
+                            )
                         )
                     ]
                     ++ (if g.playerPin /= player.pin then

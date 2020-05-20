@@ -171,7 +171,7 @@ update msg model =
 
         ( ClickedStartGame, Lobby l ) ->
             ( Lobby { l | hotJoining = False }
-            , Socket.emitStartGame l.word
+            , Socket.emitStartGame <| String.toLower l.word
             )
 
         ( OnGameUpdate game, Lobby l ) ->
@@ -193,7 +193,7 @@ update msg model =
             ( model, Socket.emitGuessLetter letter )
 
         ( ClickedGuessWord pin word, Game g ) ->
-            ( model, Socket.emitGuessWord pin word )
+            ( model, Socket.emitGuessWord pin <| String.toLower word )
 
         ( OnGameUpdate game, Game g ) ->
             case Session.status game of

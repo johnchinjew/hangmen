@@ -14,8 +14,6 @@ app.use('/', express.static('client'))
 
 const sessionManager = new SessionManager()
 
-setInterval(sessionManager.releaseSessions, 1000 * 60 * 10)
-
 io.on('connection', (socket) => {
   let session = null
   let sessionPin = null
@@ -58,20 +56,15 @@ io.on('connection', (socket) => {
       return
     }
     if (!session) {
-      console.log(`${playerPin} attempted guess-word in non-existent session`)
+      console.log(`${playerPin} attempted guess-letter in non-existent session`)
     }
 
     // Handle game logic
     session.guessLetter(letter)
     io.to(sessionPin).emit('game-update', session)
     if (session.checkGameOver()) {
-      console.log('Game over')
+      console.log('reset session', sessionPin)
       session.reset()
-    } else {
-      console.log('game not over')
-    }
-    if (!session) {
-      console.log(`${playerPin} attempted guess-word in non-existent session`)
     }
   })
   socket.on('guess-word', (pin, word) => {
@@ -89,10 +82,8 @@ io.on('connection', (socket) => {
     session.guessWord(pin, word)
     io.to(sessionPin).emit('game-update', session)
     if (session.checkGameOver()) {
-      console.log('Game over')
+      console.log('reset session', sessionPin)
       session.reset()
-    } else {
-      console.log('game not over')
     }
   })
   socket.on('skip-turn', () => {
@@ -103,17 +94,15 @@ io.on('connection', (socket) => {
       return
     }
     if (!session) {
-      console.log(`${playerPin} attempted guess-word in non-existent session`)
+      console.log(`${playerPin} attempted skip-word in non-existent session`)
     }
 
     // Handle game logic
     session.skipTurn()
     io.to(sessionPin).emit('game-update', session)
     if (session.checkGameOver()) {
-      console.log('Game over')
+      console.log('reset session', sessionPin)
       session.reset()
-    } else {
-      console.log('game not over')
     }
   })
   // Detect disconnect -> removePlayer -> Broadcast/GameOver?
@@ -127,10 +116,8 @@ io.on('connection', (socket) => {
     session.removePlayer(playerPin)
     io.to(sessionPin).emit('game-update', session)
     if (session.checkGameOver()) {
-      console.log('Game over')
+      console.log('reset session', sessionPin)
       session.reset()
-    } else {
-      console.log('game not over')
     }
   })
 })

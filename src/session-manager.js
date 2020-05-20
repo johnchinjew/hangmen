@@ -14,15 +14,30 @@ export function SessionManager() {
     return this.sessions[pin]
   }
 
-  this.releaseSessions = function() {
-  	console.log("Cleaning up unused sessions...")
-		for (const pin in this.sessions) {
-			const session = this.sessions[pin]
-			if (Object.keys(session.players).length == 0) {
+  this.dormantSessions = new Set()
+
+  this.cleanSessions = function () {
+    console.log("Cleaning up unused sessions...")
+    for (const pin in this.sessions) {
+      const session = this.sessions[pin]
+      if (Object.keys(session.players).length <= 0) {
+        console.log("Pin session", pin)
+        this.dormantSessions.add(pin)
+      } else {
+        this.dormantSessions.delete(pin)
+      }
+    }
+    for (const pin of this.dormantSessions) {
+      const session = this.sessions[pin]
+      if (Object.keys(session.players).length <= 0) {
         console.log("Deleting session", pin)
         console.log("State:", session)
-				delete this.sessions[pin]
-			}
-		}
-	}
+        delete this.sessions[pin]
+      } else {
+        this.dormantSessions.delete(pin)
+      }
+    }
+  }
+
+  setInterval(this.cleanSessions, 1000 * 60 * 10)
 }

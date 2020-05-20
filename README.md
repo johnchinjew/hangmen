@@ -18,7 +18,6 @@
     - On refresh, simply render the Home screen... do NOT recall prior identity,
       game is "in-memory"
 - Mitigate AFK: introduce a turn timeout on server
-- Disallow set-word with numbers, etc on BE
 - Sanitize before sending session state in BE
 - Use locks to prevent double-guessing, etc
 - A/B later: Guess word does not need to specify a target

@@ -140,7 +140,7 @@ export function Session() {
     return gameOver
   }
 
-  this.skipTurn = function() {
+  this.skipTurn = function () {
     this._progressTurn()
   }
 

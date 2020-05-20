@@ -14,7 +14,7 @@ pattern =
 
 valid : String -> Bool
 valid pin =
-    (String.length <| Regex.replaceAtMost 1 pattern (\match -> "") pin) == 0
+    (String.length pin > 0) && (String.length <| Regex.replaceAtMost 1 pattern (\match -> "") pin) == 0
 
 
 fromString : String -> Maybe Pin

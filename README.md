@@ -2,16 +2,13 @@
 
 ## TODO
 
-- Possibly refactor internal BE state
-- First, re-implement server using socket.io:
-    - https://ellie-app.com/8yYgw7y7sM2a1
-    - https://socket.io/docs/#Using-with-Express
-    - Removes need for player ids?
-    - Fixes end-game functionality (if necessary, refer to notes)
-    - Server auto-kill dead sessions
-    - Server auto remove disconnected players
-    - Allow hot joins with retro-active loss, remove spectation
-    - Integrate new game PIN functionality into API
+- Fixes end-game functionality (if necessary, refer to notes)
+- Server auto-kill dead sessions
+- Server auto remove disconnected players
+- Allow hot joins with retro-active loss, remove spectation
+  - Hotjoin users will join w/ empty word -> immediate death on game update
+    - FIX: Use player.ready flag to handle hotjoins
+    - If player.not ready but shud die, they don't die bro.
 
 ## TODO later
 
@@ -20,14 +17,14 @@
       refresh/navigation
     - On refresh, simply render the Home screen... do NOT recall prior identity,
       game is "in-memory"
-    - Since we are using PIN and are no longer using invite links, there is no
-      need for routing, the only entry point is Home.
 - Mitigate AFK: introduce a turn timeout on server
 - Disallow set-word with numbers, etc on BE
 - Sanitize before sending session state in BE
 - Use locks to prevent double-guessing, etc
 - A/B later: Guess word does not need to specify a target
 - Improve form error messages on FE
+- Display game pin during active game
+- FE game action log
 
 ## Build and run
 

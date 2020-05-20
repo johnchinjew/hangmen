@@ -37,6 +37,7 @@ type Model
     = Home HomeData
     | Lobby LobbyData
     | Game GameData
+    | GameOver GameOverData
 
 
 type alias HomeData =
@@ -61,7 +62,16 @@ type alias LobbyData =
 type alias GameData =
     { session : Session
     , playerPin : String
-    , guessWord : String }
+    , guessWord : String
+    }
+
+
+type alias GameOverData =
+    { session : Maybe Session
+    , prevSession : Session
+    , playerPin : String
+    , name : String
+    }
 
 
 type Start
@@ -95,6 +105,9 @@ type Msg
     | ChangedGuessWord String
     | ClickedGuessLetter String
     | ClickedGuessWord String String
+      -- GAMEOVER
+    | ClickedPlayAgain
+    | RejoinSuccessful String
       -- SERVER
     | OnGameUpdate Session
 
@@ -158,7 +171,7 @@ update msg model =
 
         ( ClickedStartGame, Lobby l ) ->
             ( Lobby { l | hotJoining = False }
-            , Socket.emitStartGame l.word 
+            , Socket.emitStartGame l.word
             )
 
         ( OnGameUpdate game, Lobby l ) ->
@@ -183,10 +196,58 @@ update msg model =
             ( model, Socket.emitGuessWord pin word )
 
         ( OnGameUpdate game, Game g ) ->
-            ( Game { g | session = game } |> Debug.log "received game!"
-            , Cmd.none
-            )
+            case Session.status game of
+                Session.Playing ->
+                    ( Game { g | session = game } |> Debug.log "received game!"
+                    , Cmd.none
+                    )
 
+                _ ->
+                    let
+                        name =
+                            case Dict.get g.playerPin g.session.players of
+                                Just player ->
+                                    player.name
+
+                                Nothing ->
+                                    "<ERROR> Why"
+                    in
+                    ( GameOver (GameOverData Nothing game "" name) |> Debug.log "recieved game!"
+                    , Cmd.none
+                    )
+
+        ( ClickedPlayAgain, GameOver g ) ->
+            ( model, Socket.emitJoinGame g.prevSession.pin g.name )
+
+        ( JoinSuccessful playerPin, GameOver g ) ->
+            case g.session of
+                Nothing ->
+                    ( GameOver { g | playerPin = playerPin }
+                    , Cmd.none
+                    )
+
+                Just session ->
+                    ( Lobby (LobbyData session playerPin "" (not session.isLobby) False)
+                    , Cmd.none
+                    )
+
+        ( OnGameUpdate game, GameOver g ) ->
+            if Pin.valid g.playerPin then
+                ( Lobby (LobbyData game g.playerPin "" (not game.isLobby) False) |> Debug.log "received game!"
+                , Cmd.none
+                )
+
+            else
+                ( GameOver { g | session = Just game } |> Debug.log "received game!"
+                , Cmd.none
+                )
+
+        -- GAMEOVER
+        --      old-session - render how the game ended
+        --      maybe session - same with Home state
+        --      playerPin - same with Home state
+        --      RejoinSuccessful
+        --      UpdateGameState
         -- CATCHALL
         ( _, _ ) ->
             update NoOp model
@@ -336,51 +397,53 @@ view model =
                     []
                 )
                     ++ (if l.session.isLobby then
-                        [ Html.h2 []
-                            [ Html.text ("Lobby: " ++ l.session.pin) ]
-                       , Html.h3 []
-                            [ Html.text "Players:" ]
-                       , Html.ul []
-                            (List.map
-                                (\player ->
-                                    Html.li []
-                                        [ Html.text <|
-                                            player.name
-                                                ++ ": "
-                                                ++ (if player.ready then
-                                                        "Ready"
+                            [ Html.h2 []
+                                [ Html.text ("Lobby: " ++ l.session.pin) ]
+                            , Html.h3 []
+                                [ Html.text "Players:" ]
+                            , Html.ul []
+                                (List.map
+                                    (\player ->
+                                        Html.li []
+                                            [ Html.text <|
+                                                player.name
+                                                    ++ ": "
+                                                    ++ (if player.ready then
+                                                            "Ready"
 
-                                                    else
-                                                        "Not ready"
-                                                   )
-                                        ]
+                                                        else
+                                                            "Not ready"
+                                                       )
+                                            ]
+                                    )
+                                    (Dict.values l.session.players)
                                 )
-                                (Dict.values l.session.players)
-                            )
-                       , Html.p []
-                            [ Html.text "Pick word:"
-                            , Html.input
-                                [ Events.onInput ChangedWord
+                            , Html.p []
+                                [ Html.text "Pick word:"
+                                , Html.input
+                                    [ Events.onInput ChangedWord
+                                    ]
+                                    []
+                                , Html.button
+                                    [ Events.onClick ClickedStartGame ]
+                                    [ Html.text "Start game" ]
                                 ]
-                                []
+                            ]
+
+                        else
+                            -- TODO: Change logic of hotjoin
+                            [ Html.p []
+                                [ Html.text "Pick word: "
+                                , Html.input
+                                    [ Events.onInput ChangedWord
+                                    ]
+                                    []
+                                ]
                             , Html.button
                                 [ Events.onClick ClickedStartGame ]
-                                [ Html.text "Start game" ]
+                                [ Html.text "Join game" ]
                             ]
-                       ]
-                    else 
-                        [ Html.p [] 
-                            [ Html.text "Pick word: "
-                            , Html.input
-                                [ Events.onInput ChangedWord
-                                ]
-                                []
-                            ]
-                            , Html.button
-                                [ Events.onClick ClickedStartGame ]
-                                [ Html.text "Join game"]
-                        ]
-                    )
+                       )
 
             Game g ->
                 [ Html.h2 []
@@ -393,36 +456,58 @@ view model =
                                 Nothing ->
                                     "Unknown"
                       in
-                      case Session.status g.session of
-                        Session.Winner pid ->
-                            Html.text (name ++ " won!")
-
-                        Session.Draw ->
-                            Html.text "Draw!"
-
-                        Session.Playing ->
-                            Html.text (name ++ "'s turn!")
+                      Html.text (name ++ "'s turn!")
+                    ]
+                , viewPlayers g
+                , viewAlphabet g
+                , Html.p []
+                    [ Html.text "Guess word: "
+                    , Html.input
+                        [ Events.onInput ChangedGuessWord ]
+                        []
                     ]
                 ]
-                    ++ (case Session.status g.session of
-                            Session.Playing ->
-                                []
 
-                            _ ->
-                                [ Html.button [ Events.onClick NoOp ] [ Html.text "Play again!" ]
-                                , Html.button [ Events.onClick NoOp ] [ Html.text "Main menu"]
+            GameOver g ->
+                [ Html.div []
+                    (List.map
+                        (\player ->
+                            Html.p
+                                [ Attributes.style "color"
+                                    (if player.alive then
+                                        "black"
+
+                                     else
+                                        "gray"
+                                    )
                                 ]
+                                [ Html.text
+                                    ((if not player.alive then
+                                        "💀"
 
-                       )
-                    ++ [ viewPlayers g
-                       , viewAlphabet g
-                       , Html.p [] 
-                            [ Html.text "Guess word: "
-                            , Html.input 
-                                [ Events.onInput ChangedGuessWord ]
-                                []
-                            ]
-                       ]
+                                      else if Session.turn g.prevSession == Just player.pin then
+                                        "\u{1F914}"
+
+                                      else
+                                        "🙂"
+                                     )
+                                        ++ " "
+                                        ++ player.name
+                                        ++ ": "
+                                        ++ (if not player.alive then
+                                                player.word
+
+                                            else
+                                                wordSoFar player.word g.prevSession.alphabet
+                                           )
+                                    )
+                                ]
+                        )
+                        (Dict.values g.prevSession.players)
+                    )
+                , Html.button [ Events.onClick ClickedPlayAgain ] [ Html.text "Play again!" ]
+                , Html.button [ Events.onClick NoOp ] [ Html.text "Main menu" ]
+                ]
     }
 
 
@@ -431,54 +516,58 @@ viewPlayers g =
     Html.div []
         (List.map
             (\player ->
-                Html.p 
-                    [ Attributes.style "color" 
-                        (if player.alive then 
-                            "black" 
-                        else 
-                            "gray")
-                    ] 
+                Html.p
+                    [ Attributes.style "color"
+                        (if player.alive then
+                            "black"
+
+                         else
+                            "gray"
+                        )
+                    ]
                     ([ Html.text
-                        (   
-                            (if not player.alive then
-                                "💀"
-                            else if Session.turn g.session == Just player.pin then 
-                                "🤔"
-                            else 
-                                "🙂"
-                            )
+                        ((if not player.alive then
+                            "💀"
+
+                          else if Session.turn g.session == Just player.pin then
+                            "\u{1F914}"
+
+                          else
+                            "🙂"
+                         )
                             ++ " "
                             ++ player.name
                             ++ ": "
-                            ++ 
-                            (if not player.alive then 
-                                player.word
-                            else 
-                                wordSoFar player.word g.session.alphabet
-                            )
+                            ++ (if not player.alive then
+                                    player.word
+
+                                else
+                                    wordSoFar player.word g.session.alphabet
+                               )
                         )
-                    ]
-                    ++ (if g.playerPin /= player.pin then
-                        [ Html.button 
-                            [ Attributes.style "margin-left" "10px" 
-                            , Attributes.disabled 
-                                <| Session.turn g.session
-                                /= Just g.playerPin
-                                || not player.alive
-                                || (case Session.status g.session of
-                                        Session.Playing ->
-                                            False
-                                            
-                                        _ ->
-                                            True
-                                    )
-                            , Events.onClick (ClickedGuessWord player.pin g.guessWord)
-                            ]
-                            [ Html.text "Sudden Death"]
-                        ]
-                        else 
-                            []
-                        )
+                     ]
+                        ++ (if g.playerPin /= player.pin then
+                                [ Html.button
+                                    [ Attributes.style "margin-left" "10px"
+                                    , Attributes.disabled <|
+                                        Session.turn g.session
+                                            /= Just g.playerPin
+                                            || not player.alive
+                                            || (case Session.status g.session of
+                                                    Session.Playing ->
+                                                        False
+
+                                                    _ ->
+                                                        True
+                                               )
+                                    , Events.onClick (ClickedGuessWord player.pin g.guessWord)
+                                    ]
+                                    [ Html.text "Sudden Death" ]
+                                ]
+
+                            else
+                                []
+                           )
                     )
             )
             (Dict.values g.session.players)

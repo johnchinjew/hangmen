@@ -24,7 +24,7 @@ export function Session() {
   this.alphabet = new Alphabet()
   this.isLobby = true
 
-  this.getPin = function () {
+  this.getPin = function() {
     return this.pin
   }
 
@@ -84,7 +84,7 @@ export function Session() {
   }
 
   this.guessLetter = function (letter) {
-    if (this.isLobby || this.alphabet.didSet(letter) || this._checkGameOver())
+    if (this.isLobby || this.alphabet.didSet(letter) || this.checkGameOver())
       return
 
     this.alphabet.set(letter)
@@ -97,7 +97,7 @@ export function Session() {
     }
 
     const guesser = this._currentPlayer()
-    if (!this._checkGameOver() && guesser.isAlive()) 
+    if (!this.checkGameOver() && guesser.isAlive()) 
       this._progressTurn()
   }
 
@@ -110,7 +110,7 @@ export function Session() {
   }
 
   this.guessWord = function (pin, word) {
-    if (this.isLobby || this._checkGameOver()) 
+    if (this.isLobby || this.checkGameOver()) 
       return
 
     const target = this.players[pin]
@@ -123,12 +123,12 @@ export function Session() {
     else 
       this._killPlayer(guesser.getPin())
 
-    if (!this._checkGameOver() && guesser.isAlive()) {
+    if (!this.checkGameOver() && guesser.isAlive()) {
       this._progressTurn()
     }
   }
 
-  this._checkGameOver = function () {
+  this.checkGameOver = function () {
     let gameOver = true
     for (const pin in this.players) {
       const player = this.players[pin]

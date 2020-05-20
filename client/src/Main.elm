@@ -172,13 +172,14 @@ update msg model =
             ( Lobby { l | word = word }, Cmd.none )
 
         ( ClickedSetWord, Lobby l ) ->
-            if validWord l.word then 
+            if validWord l.word then
                 ( Lobby { l | hotJoining = False, error = False }
                 , Socket.emitStartGame <| String.toLower l.word
                 )
-            else 
+
+            else
                 ( Lobby { l | error = True }
-                , Cmd.none 
+                , Cmd.none
                 )
 
         ( OnGameUpdate game, Lobby l ) ->
@@ -285,14 +286,14 @@ valid h =
 validWord : String -> Bool
 validWord word =
     let
-        wordLength = 
+        wordLength =
             2 <= String.length word && String.length word <= 30
 
-        alphabeticWord = 
-            alphabetic word    
+        alphabeticWord =
+            alphabetic word
     in
     wordLength && alphabeticWord
-    
+
 
 letters : Regex
 letters =
@@ -433,7 +434,7 @@ view model =
                                                 player.name
                                                     ++ " "
                                                     ++ (if not player.ready then
-                                                            "🤔"
+                                                            "\u{1F914}"
 
                                                         else
                                                             "👍"
@@ -454,17 +455,17 @@ view model =
                                     [ Html.text "Set word" ]
                                 ]
                             ]
-                            ++ (if l.error then
-                                    [ Html.p [] [ Html.text "Invalid word." ] ]
+                                ++ (if l.error then
+                                        [ Html.p [] [ Html.text "Invalid word." ] ]
 
-                                else
-                                    []
-                            )
+                                    else
+                                        []
+                                   )
 
                         else
                             -- TODO: Change logic of hotjoin
-                            [ Html.h2 [] 
-                                [ Html.text "Game in-session! Hotjoining..."]
+                            [ Html.h2 []
+                                [ Html.text "Game in-session! Hotjoining..." ]
                             , Html.p []
                                 [ Html.input
                                     [ Attributes.placeholder "Enter your word"
@@ -477,12 +478,12 @@ view model =
                                 [ Events.onClick ClickedSetWord ]
                                 [ Html.text "Join game" ]
                             ]
-                            ++ (if l.error then
-                                    [ Html.p [] [ Html.text "Invalid word." ] ]
+                                ++ (if l.error then
+                                        [ Html.p [] [ Html.text "Invalid word." ] ]
 
-                                else
-                                    []
-                            )
+                                    else
+                                        []
+                                   )
                        )
 
             Game g ->
@@ -511,8 +512,8 @@ view model =
             GameOver g ->
                 [ Html.h2 []
                     [ Html.text <|
-                        case Session.status g.prevSession of 
-                            Session.Draw -> 
+                        case Session.status g.prevSession of
+                            Session.Draw ->
                                 "Draw!"
 
                             Session.Winner playerPin ->
@@ -547,7 +548,7 @@ view model =
                                         "💀"
 
                                       else if Session.turn g.prevSession == Just player.pin then
-                                        "🤔"
+                                        "\u{1F914}"
 
                                       else
                                         "🙂"
@@ -597,12 +598,19 @@ viewPlayers g =
                             ++ (if not player.alive then
                                     player.word
 
+                                else if not player.ready then
+                                    "joining"
+
                                 else
                                     wordSoFar player.word g.session.alphabet
                                )
                         )
                      ]
-                        ++ (if g.playerPin /= player.pin then
+                        ++ (if
+                                g.playerPin
+                                    /= player.pin
+                                    && player.ready
+                            then
                                 [ Html.button
                                     [ Attributes.style "margin-left" "10px"
                                     , Attributes.disabled <|

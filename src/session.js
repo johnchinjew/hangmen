@@ -99,7 +99,7 @@ export function Session() {
     // With this newly guessed letter, some players may die
     for (const pid in this.players) {
       const player = this.players[pid]
-      if (player.isAlive() && this.alphabet.canSpell(player.getWord()))
+      if (player.isReady() && player.isAlive() && this.alphabet.canSpell(player.getWord()))
         this._killPlayer(pid)
     }
 
@@ -124,7 +124,7 @@ export function Session() {
     if (!target.isAlive() || target.getPin() === guesser.getPin()) return
 
     if (word === target.getWord()) this._killPlayer(target.getPin())
-    else this._killPlayer(guesser.getPin())
+    else if (player.isReady()) this._killPlayer(guesser.getPin())
 
     if (!this.checkGameOver() && guesser.isAlive()) {
       this._progressTurn()

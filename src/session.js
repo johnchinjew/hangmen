@@ -24,7 +24,7 @@ export function Session() {
   this.alphabet = new Alphabet()
   this.isLobby = true
 
-  this.getPin = function() {
+  this.getPin = function () {
     return this.pin
   }
 
@@ -50,7 +50,13 @@ export function Session() {
     // We don't actually want to delete player from library
     // as we want to keep the data to render game state
     // We simply want to kill the player
-    this._killPlayer(pid)
+    if (this.isLobby) {
+      if (this.players[pid]) {
+        delete this.players[pid]
+      }
+    } else {
+      this._killPlayer(pid)
+    }
   }
 
   this.setPlayerWord = function (pid, word) {
@@ -97,8 +103,7 @@ export function Session() {
     }
 
     const guesser = this._currentPlayer()
-    if (!this.checkGameOver() && guesser.isAlive()) 
-      this._progressTurn()
+    if (!this.checkGameOver() && guesser.isAlive()) this._progressTurn()
   }
 
   this.currentPlayerPin = function () {
@@ -110,18 +115,15 @@ export function Session() {
   }
 
   this.guessWord = function (pin, word) {
-    if (this.isLobby || this.checkGameOver()) 
-      return
+    if (this.isLobby || this.checkGameOver()) return
 
     const target = this.players[pin]
     const guesser = this._currentPlayer()
 
     if (!target.isAlive() || target.getPin() === guesser.getPin()) return
 
-    if (word === target.getWord()) 
-      this._killPlayer(target.getPin())
-    else 
-      this._killPlayer(guesser.getPin())
+    if (word === target.getWord()) this._killPlayer(target.getPin())
+    else this._killPlayer(guesser.getPin())
 
     if (!this.checkGameOver() && guesser.isAlive()) {
       this._progressTurn()
@@ -132,8 +134,7 @@ export function Session() {
     let gameOver = true
     for (const pin in this.players) {
       const player = this.players[pin]
-      if (pin !== this.currentPlayerPin() && player.isAlive()) 
-        gameOver = false
+      if (pin !== this.currentPlayerPin() && player.isAlive()) gameOver = false
     }
     return gameOver
   }

@@ -463,7 +463,7 @@ view model =
                 , Html.p []
                     [ Html.text "Guess word: "
                     , Html.input
-                        [ Events.onInput ChangedGuessWord ]
+                        [ Events.onInput ChangedGuessWord, Attributes.value g.guessWord ]
                         []
                     ]
                 ]
@@ -576,20 +576,23 @@ viewPlayers g =
 
 wordSoFar : String -> Alphabet -> String
 wordSoFar word alphabet =
-    String.map
-        (\char ->
-            case Dict.get (String.fromChar char) alphabet.letters of
-                Just isSet ->
-                    if isSet then
-                        char
+    word
+        |> String.map
+            (\char ->
+                case Dict.get (String.fromChar char) alphabet.letters of
+                    Just isSet ->
+                        if isSet then
+                            char
 
-                    else
+                        else
+                            '_'
+
+                    Nothing ->
                         '_'
-
-                Nothing ->
-                    '_'
-        )
-        word
+            )
+        |> String.toList
+        |> List.map String.fromChar
+        |> String.join " "
 
 
 viewAlphabet : GameData -> Html Msg

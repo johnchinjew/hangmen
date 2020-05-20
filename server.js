@@ -83,5 +83,19 @@ io.on('connection', (socket) => {
     }
   })
   // Detect disconnect -> removePlayer -> Broadcast/GameOver?
-  socket.on('disconnect', () => {})
+  socket.on('disconnect', () => {
+    if (!session || !playerPin || !sessionPin) {
+      return
+    }
+    session.removePlayer(playerPin)
+    io.to(sessionPin).emit('game-update', session)
+
+    // If gameover: kick all players from session, do not broadcast change in state
+    if (session.checkGameOver()) {
+      console.log('Game over')
+      session.reset()
+    } else {
+      console.log('game not over')
+    }
+  })
 })

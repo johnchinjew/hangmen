@@ -51,15 +51,43 @@ io.on('connection', (socket) => {
     io.to(sessionPin).emit('game-update', session)
   })
   socket.on('guess-letter', (letter) => {
+    // Sanity checks
     console.log('guess-letter', letter)
     if (playerPin !== session.currentPlayerPin()) {
       console.log(`${playerPin} attempted out-of-order guess-turn`)
       return
     }
+    if (!session) {
+      console.log(`${playerPin} attempted guess-word in non-existent session`)
+    }
+
+    // Handle game logic
     session.guessLetter(letter)
     io.to(sessionPin).emit('game-update', session)
+    if (session.checkGameOver()) {
+      console.log('Game over')
+      session.reset()
+    } else {
+      console.log('game not over')
+    }
+    if (!session) {
+      console.log(`${playerPin} attempted guess-word in non-existent session`)
+    }
+  })
+  socket.on('guess-word', (pin, word) => {
+    // Sanity checks
+    console.log('guess-word', pin, word)
+    if (playerPin !== session.currentPlayerPin()) {
+      console.log(`${playerPin} attempted out-of-order guess-word`)
+      return
+    }
+    if (!session) {
+      console.log(`${playerPin} attempted guess-word in non-existent session`)
+    }
 
-    // If gameover: kick all players from session, do not broadcast change in state
+    // Handle game logic
+    session.guessWord(pin, word)
+    io.to(sessionPin).emit('game-update', session)
     if (session.checkGameOver()) {
       console.log('Game over')
       session.reset()
@@ -67,16 +95,20 @@ io.on('connection', (socket) => {
       console.log('game not over')
     }
   })
-  socket.on('guess-word', (pin, word) => {
-    console.log('guess-word', pin, word)
+  socket.on('skip-turn', () => {
+    // Sanity checks
+    console.log('skip-turn')
     if (playerPin !== session.currentPlayerPin()) {
-      console.log(`${playerPin} attempted out-of-order guess-word`)
+      console.log(`${playerPin} attempted out-of-order skip-turn`)
       return
     }
-    session.guessWord(pin, word)
-    io.to(sessionPin).emit('game-update', session)
+    if (!session) {
+      console.log(`${playerPin} attempted guess-word in non-existent session`)
+    }
 
-    // If gameover: kick all players from session, do not broadcast change in state
+    // Handle game logic
+    session.skipTurn()
+    io.to(sessionPin).emit('game-update', session)
     if (session.checkGameOver()) {
       console.log('Game over')
       session.reset()
@@ -86,13 +118,14 @@ io.on('connection', (socket) => {
   })
   // Detect disconnect -> removePlayer -> Broadcast/GameOver?
   socket.on('disconnect', () => {
+    // Sanity check
     if (!session || !playerPin || !sessionPin) {
       return
     }
+
+    // Handle game logic
     session.removePlayer(playerPin)
     io.to(sessionPin).emit('game-update', session)
-
-    // If gameover: kick all players from session, do not broadcast change in state
     if (session.checkGameOver()) {
       console.log('Game over')
       session.reset()

@@ -19,6 +19,8 @@ export function SessionManager() {
 		for (const pin in this.sessions) {
 			const session = this.sessions[pin]
 			if (Object.keys(session.players).length == 0) {
+        console.log("Deleting session", pin)
+        console.log("State:", session)
 				delete this.sessions[pin]
 			}
 		}

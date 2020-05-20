@@ -494,12 +494,7 @@ view model =
                                         ++ " "
                                         ++ player.name
                                         ++ ": "
-                                        ++ (if not player.alive then
-                                                player.word
-
-                                            else
-                                                wordSoFar player.word g.prevSession.alphabet
-                                           )
+                                        ++ player.word
                                     )
                                 ]
                         )

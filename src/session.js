@@ -23,6 +23,7 @@ export function Session() {
   this.turnOrder = []
   this.alphabet = new Alphabet()
   this.isLobby = true
+  this.log = []
 
   this.getPin = function () {
     return this.pin
@@ -139,6 +140,10 @@ export function Session() {
     return gameOver
   }
 
+  this.skipTurn = function() {
+    this._progressTurn()
+  }
+
   this._progressTurn = function () {
     // Let's hope this works
     const top = this.turnOrder.splice(0, 1)[0]
@@ -150,5 +155,6 @@ export function Session() {
     this.turnOrder = []
     this.alphabet = new Alphabet()
     this.isLobby = true
+    this.log = []
   }
 }

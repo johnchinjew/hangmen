@@ -13,4 +13,14 @@ export function SessionManager() {
   this.getSession = function (pin) {
     return this.sessions[pin]
   }
+
+  this.releaseSessions = function() {
+  	console.log("Cleaning up unused sessions...")
+		for (const pin in this.sessions) {
+			const session = this.sessions[pin]
+			if (Object.keys(session.players).length == 0) {
+				delete this.sessions[pin]
+			}
+		}
+	}
 }

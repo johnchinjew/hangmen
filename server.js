@@ -14,6 +14,8 @@ app.use('/', express.static('client'))
 
 const sessionManager = new SessionManager()
 
+setInterval(sessionManager.releaseSessions, 1000 * 60 * 10)
+
 io.on('connection', (socket) => {
   let session = null
   let sessionPin = null

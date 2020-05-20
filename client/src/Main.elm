@@ -56,6 +56,7 @@ type alias LobbyData =
     , word : String
     , hotJoining : Bool
     , connectivityIssues : Bool
+    , error : Bool
     }
 
 
@@ -100,12 +101,13 @@ type Msg
     | JoinSuccessful String
       -- LOBBY
     | ChangedWord String
-    | ClickedStartGame
+    | ClickedSetWord
       -- GAME
     | ChangedGuessWord String
     | ClickedGuessLetter String
     | ClickedGuessWord String String
       -- GAMEOVER
+    | ClickedMainMenu
     | ClickedPlayAgain
     | RejoinSuccessful String
       -- SERVER
@@ -150,13 +152,13 @@ update msg model =
                     )
 
                 Just session ->
-                    ( Lobby (LobbyData session playerPin "" (not session.isLobby) False)
+                    ( Lobby (LobbyData session playerPin "" (not session.isLobby) False False)
                     , Cmd.none
                     )
 
         ( OnGameUpdate game, Home h ) ->
             if Pin.valid h.playerPin then
-                ( Lobby (LobbyData game h.playerPin "" (not game.isLobby) False) |> Debug.log "received game!"
+                ( Lobby (LobbyData game h.playerPin "" (not game.isLobby) False False) |> Debug.log "received game!"
                 , Cmd.none
                 )
 
@@ -169,10 +171,15 @@ update msg model =
         ( ChangedWord word, Lobby l ) ->
             ( Lobby { l | word = word }, Cmd.none )
 
-        ( ClickedStartGame, Lobby l ) ->
-            ( Lobby { l | hotJoining = False }
-            , Socket.emitStartGame <| String.toLower l.word
-            )
+        ( ClickedSetWord, Lobby l ) ->
+            if validWord l.word then 
+                ( Lobby { l | hotJoining = False, error = False }
+                , Socket.emitStartGame <| String.toLower l.word
+                )
+            else 
+                ( Lobby { l | error = True }
+                , Cmd.none 
+                )
 
         ( OnGameUpdate game, Lobby l ) ->
             if not l.hotJoining && not game.isLobby then
@@ -204,17 +211,22 @@ update msg model =
 
                 _ ->
                     let
-                        name =
+                        playerName =
                             case Dict.get g.playerPin g.session.players of
                                 Just player ->
                                     player.name
 
                                 Nothing ->
-                                    "<ERROR> Why"
+                                    "<ERROR> Unable to retrieve player name"
                     in
-                    ( GameOver (GameOverData Nothing game "" name) |> Debug.log "recieved game!"
+                    ( GameOver (GameOverData Nothing game "" playerName) |> Debug.log "recieved game!"
                     , Cmd.none
                     )
+
+        ( ClickedMainMenu, GameOver g ) ->
+            ( Home <| HomeData Create "" "" "" Nothing False
+            , Cmd.none
+            )
 
         ( ClickedPlayAgain, GameOver g ) ->
             ( model, Socket.emitJoinGame g.prevSession.pin g.name )
@@ -227,13 +239,13 @@ update msg model =
                     )
 
                 Just session ->
-                    ( Lobby (LobbyData session playerPin "" (not session.isLobby) False)
+                    ( Lobby (LobbyData session playerPin "" (not session.isLobby) False False)
                     , Cmd.none
                     )
 
         ( OnGameUpdate game, GameOver g ) ->
             if Pin.valid g.playerPin then
-                ( Lobby (LobbyData game g.playerPin "" (not game.isLobby) False) |> Debug.log "received game!"
+                ( Lobby (LobbyData game g.playerPin "" (not game.isLobby) False False) |> Debug.log "received game!"
                 , Cmd.none
                 )
 
@@ -269,6 +281,18 @@ valid h =
     in
     nameLength && validPin
 
+
+validWord : String -> Bool
+validWord word =
+    let
+        wordLength = 
+            2 <= String.length word && String.length word <= 30
+
+        alphabeticWord = 
+            alphabetic word    
+    in
+    wordLength && alphabeticWord
+    
 
 letters : Regex
 letters =
@@ -407,42 +431,58 @@ view model =
                                         Html.li []
                                             [ Html.text <|
                                                 player.name
-                                                    ++ ": "
-                                                    ++ (if player.ready then
-                                                            "Ready"
+                                                    ++ " "
+                                                    ++ (if not player.ready then
+                                                            "🤔"
 
                                                         else
-                                                            "Not ready"
+                                                            "👍"
                                                        )
                                             ]
                                     )
                                     (Dict.values l.session.players)
                                 )
                             , Html.p []
-                                [ Html.text "Pick word:"
-                                , Html.input
-                                    [ Events.onInput ChangedWord
+                                [ Html.input
+                                    [ Attributes.placeholder "Enter your word"
+                                    , Attributes.value l.word
+                                    , Events.onInput ChangedWord
                                     ]
                                     []
                                 , Html.button
-                                    [ Events.onClick ClickedStartGame ]
-                                    [ Html.text "Start game" ]
+                                    [ Events.onClick ClickedSetWord ]
+                                    [ Html.text "Set word" ]
                                 ]
                             ]
+                            ++ (if l.error then
+                                    [ Html.p [] [ Html.text "Invalid word." ] ]
+
+                                else
+                                    []
+                            )
 
                         else
                             -- TODO: Change logic of hotjoin
-                            [ Html.p []
-                                [ Html.text "Pick word: "
-                                , Html.input
-                                    [ Events.onInput ChangedWord
+                            [ Html.h2 [] 
+                                [ Html.text "Game in-session! Hotjoining..."]
+                            , Html.p []
+                                [ Html.input
+                                    [ Attributes.placeholder "Enter your word"
+                                    , Attributes.value l.word
+                                    , Events.onInput ChangedWord
                                     ]
                                     []
                                 ]
                             , Html.button
-                                [ Events.onClick ClickedStartGame ]
+                                [ Events.onClick ClickedSetWord ]
                                 [ Html.text "Join game" ]
                             ]
+                            ++ (if l.error then
+                                    [ Html.p [] [ Html.text "Invalid word." ] ]
+
+                                else
+                                    []
+                            )
                        )
 
             Game g ->
@@ -469,7 +509,28 @@ view model =
                 ]
 
             GameOver g ->
-                [ Html.div []
+                [ Html.h2 []
+                    [ Html.text <|
+                        case Session.status g.prevSession of 
+                            Session.Draw -> 
+                                "Draw!"
+
+                            Session.Winner playerPin ->
+                                let
+                                    playerName =
+                                        case Dict.get playerPin g.prevSession.players of
+                                            Just player ->
+                                                player.name
+
+                                            Nothing ->
+                                                "<ERROR> Unable to retrieve player name"
+                                in
+                                playerName ++ " wins!"
+
+                            _ ->
+                                "<ERROR> Invalid end state"
+                    ]
+                , Html.div []
                     (List.map
                         (\player ->
                             Html.p
@@ -486,7 +547,7 @@ view model =
                                         "💀"
 
                                       else if Session.turn g.prevSession == Just player.pin then
-                                        "\u{1F914}"
+                                        "🤔"
 
                                       else
                                         "🙂"
@@ -501,7 +562,7 @@ view model =
                         (Dict.values g.prevSession.players)
                     )
                 , Html.button [ Events.onClick ClickedPlayAgain ] [ Html.text "Play again!" ]
-                , Html.button [ Events.onClick NoOp ] [ Html.text "Main menu" ]
+                , Html.button [ Events.onClick ClickedMainMenu ] [ Html.text "Main menu" ]
                 ]
     }
 

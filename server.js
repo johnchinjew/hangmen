@@ -111,6 +111,7 @@ io.on('connection', (socket) => {
     if (!session || !playerPin || !sessionPin) {
       return
     }
+    console.log('disconnect', playerPin)
 
     // Handle game logic
     session.removePlayer(playerPin)

@@ -33,9 +33,6 @@ export function Session() {
     const newPlayer = new Player(name)
     const newPin = newPlayer.getPin()
     this.players[newPin] = newPlayer
-    if (!this.isLobby) {
-      this.turnOrder.push(newPin)
-    }
     return newPin
   }
 
@@ -48,14 +45,16 @@ export function Session() {
   }
 
   this.removePlayer = function (pid) {
-    // We don't actually want to delete player from library
-    // as we want to keep the data to render game state
-    // We simply want to kill the player
     if (this.isLobby) {
+      // If  not in middle of session, just delete player from collection
       if (this.players[pid]) {
         delete this.players[pid]
       }
     } else {
+      // We don't actually want to delete player from library
+      // as we want to keep the data to render game state
+      // We simply want to kill the player
+      // will be automatically removed by reset()
       if (!this.players[pid].isReady()) {
         delete this.players[pid]
       } else {
@@ -64,26 +63,30 @@ export function Session() {
     }
   }
 
-  this.setPlayerWord = function (pid, word) {
+  this.setPlayerWord = function (pin, word) {
     // if (!this.isLobby) return    // Removed to permit hotjoins
 
-    const player = this.players[pid]
+    const player = this.players[pin]
 
     if (!player) return
 
     player.setWordAndReady(word)
 
-    // Check number of players in lobby
-    if (Object.keys(this.players).length < 2) return
-
-    // If all players are ready, start the game
-    const allReady = Object.values(this.players).reduce(
-      (a, p) => a && p.isReady(),
-      true,
-    )
-    if (allReady) {
-      // Starting game process
-      this._start()
+    if (this.isLobby) {
+      // Check number of players in lobby
+      if (Object.keys(this.players).length < 2) return
+  
+      // If all players are ready, start the game
+      const allReady = Object.values(this.players).reduce(
+        (a, p) => a && p.isReady(),
+        true,
+      )
+      if (allReady) {
+        // Starting game process
+        this._start()
+      }
+    } else {
+      this.turnOrder.push(pin)
     }
   }
 

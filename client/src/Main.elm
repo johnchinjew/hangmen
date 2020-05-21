@@ -429,19 +429,20 @@ view model =
                             , viewGamePin l.session.pin
                             , Html.h3 []
                                 [ Html.text "Players:" ]
-                            , Html.ul []
+                            , Html.div []
                                 (List.map
                                     (\player ->
-                                        Html.li []
+                                        Html.p []
                                             [ Html.text <|
-                                                player.name
-                                                    ++ " "
-                                                    ++ (if not player.ready then
-                                                            "\u{1F914}"
+                                                ((if not player.ready then
+                                                    "\u{1F914}"
 
-                                                        else
-                                                            "👍"
-                                                       )
+                                                else
+                                                    "👍"
+                                                )
+                                                ++ "  "
+                                                ++ player.name
+                                                )
                                             ]
                                     )
                                     (Dict.values l.session.players)
@@ -508,19 +509,36 @@ view model =
                     ]
                 , viewGamePin g.session.pin
                 , viewPlayers g
+                , Html.p 
+                    (
+                    [ Attributes.style "margin" "0.5rem 0"
+                    , Attributes.style "padding" "0.5rem 1rem"
+                    , Attributes.class "notice"
+                    ] 
+                    ++ (if isMyTurn then 
+                            [ Attributes.style "background" "#FFE082" ] 
+                        else 
+                            [])
+                    )
+                    [ Html.text <|
+                        if isMyTurn then 
+                            "It's your turn! Guess a letter below OR guess a word." 
+                        else 
+                            "Wait for your turn..." 
+                    ]
                 ]
-                    ++ (if isMyTurn then
-                            [ Html.p
-                                [ Attributes.style "margin" "0.5rem 0"
-                                , Attributes.style "padding" "0.5rem 1rem"
-                                , Attributes.style "background" "#FFE082"
-                                ]
-                                [ Html.text "It's your turn! Guess a letter below OR guess a word." ]
-                            ]
+                    -- ++ (if isMyTurn then
+                    --         [ Html.p
+                    --             [ Attributes.style "margin" "0.5rem 0"
+                    --             , Attributes.style "padding" "0.5rem 1rem"
+                    --             , Attributes.style "background" "#FFE082"
+                    --             ]
+                    --             [ Html.text "It's your turn! Guess a letter below OR guess a word." ]
+                    --         ]
 
-                        else
-                            []
-                       )
+                    --     else
+                    --         [ ]
+                    --    )
                     ++ [ viewAlphabet g ]
                     ++ (if isMyTurn then
                             [ Html.p []
@@ -573,13 +591,10 @@ view model =
                                     ((if not player.alive then
                                         "💀"
 
-                                      else if Session.turn g.prevSession == Just player.pin then
-                                        "\u{1F914}"
-
                                       else
-                                        "🙂"
+                                        "🥳"
                                      )
-                                        ++ " "
+                                        ++ "  "
                                         ++ player.name
                                         ++ ": "
                                         ++ player.word
@@ -590,7 +605,7 @@ view model =
                     )
                 , Html.button
                     [ Events.onClick ClickedPlayAgain
-                    , Attributes.style "margin-right" "0.5rem"
+                    , Attributes.style "margin-right" "0.4rem"
                     ]
                     [ Html.text "Play again!" ]
                 , Html.button [ Events.onClick ClickedMainMenu ] [ Html.text "Main menu" ]
@@ -600,9 +615,9 @@ view model =
 
 viewGamePin : String -> Html Msg
 viewGamePin pin =
-    Html.h2
+    Html.h3
         [ Attributes.style "position" "fixed"
-        , Attributes.style "top" "0"
+        , Attributes.style "top" "0.4rem"
         , Attributes.style "right" "0"
         , Attributes.style "margin" "2rem"
         ]
@@ -640,7 +655,7 @@ viewPlayers g =
                                     player.word
 
                                 else if not player.ready then
-                                    "joining"
+                                    "joining..."
 
                                 else
                                     wordSoFar player.word g.session.alphabet
@@ -651,13 +666,13 @@ viewPlayers g =
                                 g.playerPin
                                     /= player.pin
                                     && player.ready
+                                    && player.alive
                             then
                                 [ Html.button
                                     [ Attributes.style "margin-left" "10px"
                                     , Attributes.disabled <|
                                         Session.turn g.session
                                             /= Just g.playerPin
-                                            || not player.alive
                                             || (case Session.status g.session of
                                                     Session.Playing ->
                                                         False
@@ -724,7 +739,10 @@ viewAlphabet g =
                      , Attributes.style "font-size" "0.85rem"
                      ]
                         ++ (if Tuple.second letter then
-                                [ Attributes.style "text-decoration" "line-through" ]
+                                [ Attributes.style "text-decoration" "line-through"
+                                , Attributes.style "border-color" "whitesmoke"
+                                , Attributes.style "color" "whitesmoke"
+                                ]
 
                             else
                                 []

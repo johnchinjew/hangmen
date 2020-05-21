@@ -56,7 +56,11 @@ export function Session() {
         delete this.players[pid]
       }
     } else {
-      this._killPlayer(pid)
+      if (!this.players[pid].isReady()) {
+        delete this.players[pid]
+      } else {
+        this._killPlayer(pid)
+      }
     }
   }
 
@@ -123,8 +127,15 @@ export function Session() {
 
     if (!target.isAlive() || target.getPin() === guesser.getPin()) return
 
-    if (word === target.getWord()) this._killPlayer(target.getPin())
-    else if (player.isReady()) this._killPlayer(guesser.getPin())
+    if (word === target.getWord()) {
+      if (target.isReady()) {
+        this._killPlayer(target.getPin())
+      }
+    } else {
+      if (guesser.isReady()) {
+        this._killPlayer(guesser.getPin())
+      }
+    }
 
     if (!this.checkGameOver() && guesser.isAlive()) {
       this._progressTurn()

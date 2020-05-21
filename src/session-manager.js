@@ -27,14 +27,12 @@ export function SessionManager() {
         this.dormantSessions.delete(pin)
       }
     }
-    for (const pin of this.dormantSessions) {
+    for (const pin in this.dormantSessions) {
       const session = this.sessions[pin]
       if (Object.keys(session.players).length <= 0) {
-        console.log("Deleting session", pin)
+        console.log("Deleting sessionoden", pin)
         console.log("State:", session)
         delete this.sessions[pin]
-      } else {
-        this.dormantSessions.delete(pin)
       }
     }
   }

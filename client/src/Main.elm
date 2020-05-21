@@ -10,6 +10,7 @@ import Html.Events as Events
 import Json.Decode as Decode
 import Pin exposing (Pin)
 import Ports
+import Random
 import Regex exposing (Regex)
 import Session exposing (Session)
 import Socket
@@ -47,6 +48,7 @@ type alias HomeData =
     , name : String
     , session : Maybe Session
     , error : Bool
+    , randomness : Int
     }
 
 
@@ -82,8 +84,8 @@ type Start
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( Home <| HomeData Create "" "" "" Nothing False
-    , Cmd.none
+    ( Home <| HomeData Create "" "" "" Nothing False 0
+    , Random.generate Randomness (Random.int 0 1)
     )
 
 
@@ -94,6 +96,7 @@ init _ =
 type Msg
     = NoOp
       -- HOME
+    | Randomness Int
     | PickStart Start
     | ChangedPin String
     | ChangedName String
@@ -121,6 +124,9 @@ update msg model =
             ( model, Cmd.none )
 
         -- HOME
+        ( Randomness int, Home h ) ->
+            ( Home { h | randomness = int }, Cmd.none )
+
         ( PickStart start, Home h ) ->
             ( Home { h | start = start, error = False }, Cmd.none )
 
@@ -225,8 +231,8 @@ update msg model =
                     )
 
         ( ClickedMainMenu, GameOver g ) ->
-            ( Home <| HomeData Create "" "" "" Nothing False
-            , Cmd.none
+            ( Home <| HomeData Create "" "" "" Nothing False 0
+            , Random.generate Randomness (Random.int 0 1)
             )
 
         ( ClickedPlayAgain, GameOver g ) ->
@@ -393,16 +399,6 @@ view model =
                                 ]
                                 []
                             ]
-
-                       --    , Html.p []
-                       --         [ Html.text "Word: "
-                       --         , Html.input
-                       --             [ Attributes.placeholder "Choose word"
-                       --             , Attributes.value h.word
-                       --             , Events.onInput ChangedWord
-                       --             ]
-                       --             []
-                       --         ]
                        ]
                     ++ (if h.error then
                             [ Html.p [] [ Html.text "Invalid input. Fix and try again." ] ]
@@ -411,7 +407,14 @@ view model =
                             []
                        )
                     ++ [ Html.button [ Events.onClick ClickedStart ] [ Html.text "Start" ]
-                       , Html.p [] [ Html.text "Created by Eero Gallano and John Chin-Jew." ]
+                       , Html.p []
+                            [ Html.text <|
+                                if h.randomness == 1 then
+                                    "Created by Eero Gallano and John Chin-Jew."
+
+                                else
+                                    "Created by John Chin-Jew and Eero Gallano."
+                            ]
                        ]
 
             Lobby l ->
@@ -422,8 +425,8 @@ view model =
                     []
                 )
                     ++ (if l.session.isLobby then
-                            [ Html.h2 []
-                                [ Html.text ("Lobby: " ++ l.session.pin) ]
+                            [ Html.h2 [] [ Html.text "Lobby" ]
+                            , viewGamePin l.session.pin
                             , Html.h3 []
                                 [ Html.text "Players:" ]
                             , Html.ul []
@@ -451,7 +454,7 @@ view model =
                                     ]
                                     []
                                 , Html.button
-                                    [ Events.onClick ClickedSetWord ]
+                                    [ Events.onClick ClickedSetWord, Attributes.style "margin-left" "0.5rem" ]
                                     [ Html.text "Set word" ]
                                 ]
                             ]
@@ -487,6 +490,10 @@ view model =
                        )
 
             Game g ->
+                let
+                    isMyTurn =
+                        Session.turn g.session == Just g.playerPin
+                in
                 [ Html.h2 []
                     [ let
                         name =
@@ -499,15 +506,34 @@ view model =
                       in
                       Html.text (name ++ "'s turn!")
                     ]
+                , viewGamePin g.session.pin
                 , viewPlayers g
-                , viewAlphabet g
-                , Html.p []
-                    [ Html.text "Guess word: "
-                    , Html.input
-                        [ Events.onInput ChangedGuessWord, Attributes.value g.guessWord ]
-                        []
-                    ]
                 ]
+                    ++ (if isMyTurn then
+                            [ Html.p
+                                [ Attributes.style "margin" "0.5rem 0"
+                                , Attributes.style "padding" "0.5rem 1rem"
+                                , Attributes.style "background" "#FFE082"
+                                ]
+                                [ Html.text "It's your turn! Guess a letter below OR guess a word." ]
+                            ]
+
+                        else
+                            []
+                       )
+                    ++ [ viewAlphabet g ]
+                    ++ (if isMyTurn then
+                            [ Html.p []
+                                [ Html.text "Guess word (Sudden Death): "
+                                , Html.input
+                                    [ Events.onInput ChangedGuessWord, Attributes.value g.guessWord ]
+                                    []
+                                ]
+                            ]
+
+                        else
+                            []
+                       )
 
             GameOver g ->
                 [ Html.h2 []
@@ -562,10 +588,25 @@ view model =
                         )
                         (Dict.values g.prevSession.players)
                     )
-                , Html.button [ Events.onClick ClickedPlayAgain ] [ Html.text "Play again!" ]
+                , Html.button
+                    [ Events.onClick ClickedPlayAgain
+                    , Attributes.style "margin-right" "0.5rem"
+                    ]
+                    [ Html.text "Play again!" ]
                 , Html.button [ Events.onClick ClickedMainMenu ] [ Html.text "Main menu" ]
                 ]
     }
+
+
+viewGamePin : String -> Html Msg
+viewGamePin pin =
+    Html.h2
+        [ Attributes.style "position" "fixed"
+        , Attributes.style "top" "0"
+        , Attributes.style "right" "0"
+        , Attributes.style "margin" "2rem"
+        ]
+        [ Html.text <| "Game PIN: " ++ pin ]
 
 
 viewPlayers : GameData -> Html Msg
@@ -661,7 +702,9 @@ wordSoFar word alphabet =
 
 viewAlphabet : GameData -> Html Msg
 viewAlphabet g =
-    Html.p []
+    Html.div
+        [ Attributes.style "max-width" "490px"
+        ]
         (List.map
             (\letter ->
                 Html.button
@@ -677,7 +720,15 @@ viewAlphabet g =
                                         True
                                )
                         )
+                     , Attributes.style "margin" "0.5rem"
+                     , Attributes.style "font-size" "0.85rem"
                      ]
+                        ++ (if Tuple.second letter then
+                                [ Attributes.style "text-decoration" "line-through" ]
+
+                            else
+                                []
+                           )
                         ++ (if Session.turn g.session == Just g.playerPin then
                                 [ Events.onClick (ClickedGuessLetter (Tuple.first letter)) ]
 

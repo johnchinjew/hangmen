@@ -4,14 +4,41 @@
 <head>
     <meta charset="utf-8">
     <title>Hangmen</title>
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no">
+    <link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        html {
+            font-family: Jost, sans-serif;
+        }
+
+        h1 {
+            margin: 0;
+        }
+
+        body {
+            margin: 2rem;
+        }
+
+        button {
+            padding: 0.2rem 0.8rem;
+            background: white;
+            border: 1px solid lightgrey;
+            border-radius: 4px;
+        }
+
+        label {
+            margin-left: 0.5rem;
+        }
+    </style>
     <script src="./client.js"></script>
     <script src="/socket.io/socket.io.js"></script>
 </head>
 
 <body>
     <script>
-        const app = Elm.Main.init();
-        const socket = io(); // TODO: Detect connection error
+        const app = Elm.Main.init()
+        const socket = io() // TODO: Detect connection error
 
         app.ports.toSocket.subscribe((event) => {
             if (event.tag == 'create-game')
@@ -24,17 +51,18 @@
                 socket.emit(event.tag, event.letter)
             else if (event.tag == 'guess-word')
                 socket.emit(event.tag, event.pin, event.word)
-        });
+        })
 
         socket.on('game-update', (game) => {
             console.log('game-update')
             app.ports.fromSocket.send(game)
-        });
+        })
 
         socket.on('join-successful', (pid) => {
             console.log('join-successful')
             app.ports.fromSocket.send(pid)
         })
+
     </script>
 </body>
 

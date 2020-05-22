@@ -29,11 +29,10 @@ export function Session() {
     return this.pin
   }
 
-  this.addPlayer = function (name) {
-    const newPlayer = new Player(name)
-    const newPin = newPlayer.getPin()
-    this.players[newPin] = newPlayer
-    return newPin
+  this.addPlayer = function (pin, name) {
+    if (pin in this.players)
+      return
+    this.players[pin] = new Player(name)
   }
 
   this._killPlayer = function (pid) {

@@ -1,6 +1,7 @@
 import express from 'express'
 import http from 'http'
 import socketio from 'socket.io'
+import { pin } from './src/pin.js'
 import { SessionManager } from './src/session-manager.js'
 
 const app = express()
@@ -17,29 +18,40 @@ const sessionManager = new SessionManager()
 io.on('connection', (socket) => {
   let session = null
   let sessionPin = null
-  let playerPin = null
+  let playerPin = pin()
+
+  console.log(`${playerPin} connected to server`)
 
   socket.on('create-game', (name) => {
     console.log('create-game', name)
+    if (!playerPin) {
+      console.log(`failed to create pin for ${name}`)
+      return
+    }
     sessionPin = sessionManager.createSession()
     console.log(`created game ${sessionPin}`)
     session = sessionManager.getSession(sessionPin)
     socket.join(sessionPin)
-    playerPin = session.addPlayer(name)
+    session.addPlayer(playerPin, name)
     io.to(socket.id).emit('join-successful', playerPin)
     io.to(sessionPin).emit('game-update', session)
   })
   socket.on('join-game', (pin, name) => {
     console.log('join-game', pin, name)
+    if (!playerPin) {
+      console.log(`failed to create pin for ${name}`)
+      return
+    }
     sessionPin = pin
     session = sessionManager.getSession(pin)
     if (!session) {
       console.log(`failed to join game ${sessionPin}`)
       return
     }
+
     console.log(`joined game ${sessionPin}`)
-    playerPin = session.addPlayer(name)
     socket.join(sessionPin)
+    session.addPlayer(playerPin, name)
     io.to(socket.id).emit('join-successful', playerPin)
     io.to(sessionPin).emit('game-update', session)
   })
@@ -116,7 +128,7 @@ io.on('connection', (socket) => {
     // Handle game logic
     session.removePlayer(playerPin)
     io.to(sessionPin).emit('game-update', session)
-    if (session.checkGameOver()) {
+    if (!session.isLobby && session.checkGameOver()) {
       console.log('reset session', sessionPin)
       session.reset()
     }

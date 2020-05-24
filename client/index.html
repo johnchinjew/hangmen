@@ -74,9 +74,9 @@
             app.ports.fromSocket.send(game)
         })
 
-        socket.on('join-successful', (pid) => {
-            console.log('join-successful')
-            app.ports.fromSocket.send(pid)
+        socket.on('connect-successful', (playerPin) => {
+            console.log('connect-successful')
+            app.ports.fromSocket.send(playerPin)
         })
 
     </script>

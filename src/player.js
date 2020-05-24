@@ -1,7 +1,7 @@
 import { pin } from './pin.js'
 
-export function Player(name) {
-  this.pin = pin()
+export function Player(pin, name) {
+  this.pin = pin
   this.name = name
   this.word = ""
   this.ready = false

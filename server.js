@@ -21,6 +21,7 @@ io.on('connection', (socket) => {
   let playerPin = pin()
 
   console.log(`${playerPin} connected to server`)
+  io.to(socket.id).emit('connect-successful', playerPin)
 
   socket.on('create-game', (name) => {
     console.log('create-game', name)
@@ -33,7 +34,6 @@ io.on('connection', (socket) => {
     session = sessionManager.getSession(sessionPin)
     socket.join(sessionPin)
     session.addPlayer(playerPin, name)
-    io.to(socket.id).emit('join-successful', playerPin)
     io.to(sessionPin).emit('game-update', session)
   })
   socket.on('join-game', (pin, name) => {
@@ -52,7 +52,6 @@ io.on('connection', (socket) => {
     console.log(`joined game ${sessionPin}`)
     socket.join(sessionPin)
     session.addPlayer(playerPin, name)
-    io.to(socket.id).emit('join-successful', playerPin)
     io.to(sessionPin).emit('game-update', session)
   })
   socket.on('start-game', (word) => {
@@ -75,6 +74,10 @@ io.on('connection', (socket) => {
     session.guessLetter(letter)
     io.to(sessionPin).emit('game-update', session)
     if (session.checkGameOver()) {
+      io.in(sessionPin).clients((error, sockets) => {
+        if (error) throw error
+        sockets.forEach(socket => io.sockets.sockets[socket].leave(sessionPin))
+      })
       console.log('reset session', sessionPin)
       session.reset()
     }
@@ -94,6 +97,10 @@ io.on('connection', (socket) => {
     session.guessWord(pin, word)
     io.to(sessionPin).emit('game-update', session)
     if (session.checkGameOver()) {
+      io.in(sessionPin).clients((error, sockets) => {
+        if (error) throw error
+        sockets.forEach(socket => io.sockets.sockets[socket].leave(sessionPin))
+      })
       console.log('reset session', sessionPin)
       session.reset()
     }
@@ -113,6 +120,10 @@ io.on('connection', (socket) => {
     session.skipTurn()
     io.to(sessionPin).emit('game-update', session)
     if (session.checkGameOver()) {
+      io.in(sessionPin).clients((error, sockets) => {
+        if (error) throw error
+        sockets.forEach(socket => io.sockets.sockets[socket].leave(sessionPin))
+      })
       console.log('reset session', sessionPin)
       session.reset()
     }
@@ -131,6 +142,7 @@ io.on('connection', (socket) => {
     if (!session.isLobby && session.checkGameOver()) {
       console.log('reset session', sessionPin)
       session.reset()
+
     }
   })
 })

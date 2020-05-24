@@ -97,6 +97,7 @@ type Msg
     = NoOp
       -- HOME
     | Randomness Int
+    | ConnectSuccessful String
     | PickStart Start
     | ChangedPin String
     | ChangedName String
@@ -127,6 +128,10 @@ update msg model =
         ( Randomness int, Home h ) ->
             ( Home { h | randomness = int }, Cmd.none )
 
+        ( ConnectSuccessful playerPin, Home h ) -> 
+            ( Home { h | playerPin = playerPin } |> Debug.log "recieved player pin!"
+            , Cmd.none )
+
         ( PickStart start, Home h ) ->
             ( Home { h | start = start, error = False }, Cmd.none )
 
@@ -150,17 +155,17 @@ update msg model =
             else
                 ( Home { h | error = True }, Cmd.none )
 
-        ( JoinSuccessful playerPin, Home h ) ->
-            case h.session of
-                Nothing ->
-                    ( Home { h | playerPin = playerPin }
-                    , Cmd.none
-                    )
+        -- ( JoinSuccessful playerPin, Home h ) ->
+        --     case h.session of
+        --         Nothing ->
+        --             ( Home { h | playerPin = playerPin }
+        --             , Cmd.none
+        --             )
 
-                Just session ->
-                    ( Lobby (LobbyData session playerPin "" (not session.isLobby) False False)
-                    , Cmd.none
-                    )
+        --         Just session ->
+        --             ( Lobby (LobbyData session playerPin "" (not session.isLobby) False False)
+        --             , Cmd.none
+        --             )
 
         ( OnGameUpdate game, Home h ) ->
             if Pin.valid h.playerPin then
@@ -169,7 +174,7 @@ update msg model =
                 )
 
             else
-                ( Home { h | session = Just game } |> Debug.log "received game!"
+                ( Home { h | session = Just game } |> Debug.log "invalid player pin!"
                 , Cmd.none
                 )
 
@@ -226,7 +231,7 @@ update msg model =
                                 Nothing ->
                                     "<ERROR> Unable to retrieve player name"
                     in
-                    ( GameOver (GameOverData Nothing game "" playerName) |> Debug.log "recieved game!"
+                    ( GameOver (GameOverData Nothing game g.playerPin playerName) |> Debug.log "recieved game!"
                     , Cmd.none
                     )
 
@@ -238,35 +243,28 @@ update msg model =
         ( ClickedPlayAgain, GameOver g ) ->
             ( model, Socket.emitJoinGame g.prevSession.pin g.name )
 
-        ( JoinSuccessful playerPin, GameOver g ) ->
-            case g.session of
-                Nothing ->
-                    ( GameOver { g | playerPin = playerPin }
-                    , Cmd.none
-                    )
+        ( OnGameUpdate game, GameOver g ) -> 
+            ( Lobby (LobbyData game g.playerPin "" (not game.isLobby) False False)
+            , Cmd.none 
+            )
 
-                Just session ->
-                    ( Lobby (LobbyData session playerPin "" (not session.isLobby) False False)
-                    , Cmd.none
-                    )
+        -- ( JoinSuccessful playerPin, GameOver g ) ->
+        --     case g.session of
+        --         Nothing ->
+        --             ( GameOver { g | playerPin = playerPin }
+        --             , Cmd.none
+        --             )
 
-        ( OnGameUpdate game, GameOver g ) ->
-            if Pin.valid g.playerPin then
-                ( Lobby (LobbyData game g.playerPin "" (not game.isLobby) False False) |> Debug.log "received game!"
-                , Cmd.none
-                )
+        --         Just session ->
+        --             ( Lobby (LobbyData session playerPin "" (not session.isLobby) False False)
+        --             , Cmd.none
+        --             )
 
-            else
-                ( GameOver { g | session = Just game } |> Debug.log "received game!"
-                , Cmd.none
-                )
+        -- ( OnGameUpdate game, GameOver g ) ->
+        --     ( GameOver { g | session = Just game } |> Debug.log "received game!"
+        --     , Cmd.none
+        --     )
 
-        -- GAMEOVER
-        --      old-session - render how the game ended
-        --      maybe session - same with Home state
-        --      playerPin - same with Home state
-        --      RejoinSuccessful
-        --      UpdateGameState
         -- CATCHALL
         ( _, _ ) ->
             update NoOp model
@@ -331,7 +329,7 @@ subscriptions model =
             (\playerPin ->
                 case Decode.decodeValue Decode.string playerPin of
                     Ok playerPin_ ->
-                        JoinSuccessful playerPin_
+                        ConnectSuccessful playerPin_
 
                     Err _ ->
                         NoOp |> Debug.log "failed to decode playerPin"

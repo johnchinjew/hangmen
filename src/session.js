@@ -32,7 +32,7 @@ export function Session() {
   this.addPlayer = function (pin, name) {
     if (pin in this.players)
       return
-    this.players[pin] = new Player(name)
+    this.players[pin] = new Player(pin, name)
   }
 
   this._killPlayer = function (pid) {

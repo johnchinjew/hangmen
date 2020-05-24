@@ -236,7 +236,7 @@ update msg model =
                     )
 
         ( ClickedMainMenu, GameOver g ) ->
-            ( Home <| HomeData Create "" "" "" Nothing False 0
+            ( Home <| HomeData Create g.playerPin "" "" Nothing False 0
             , Random.generate Randomness (Random.int 0 1)
             )
 

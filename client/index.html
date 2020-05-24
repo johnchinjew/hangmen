@@ -37,6 +37,17 @@
             transition: 0.3s;
         }
 
+        .spoiler {
+            color: lightgrey;
+            background-color: lightgrey;
+            border-radius: 4px;
+        }
+        
+        .spoiler:hover {
+            color: black;
+            background-color: white;
+        }
+
         input {
             background: white;
             border: 2px solid lightgrey;
@@ -61,8 +72,11 @@
                 socket.emit(event.tag, event.name)
             else if (event.tag == 'join-game')
                 socket.emit(event.tag, event.pin, event.name)
-            else if (event.tag == 'start-game')
+            else if (event.tag == 'set-word')
                 socket.emit(event.tag, event.word)
+            else if (event.tag == 'start-game')
+                // socket.emit(event.tag, event.word)
+                socket.emit(event.tag)
             else if (event.tag == 'guess-letter')
                 socket.emit(event.tag, event.letter)
             else if (event.tag == 'guess-word')

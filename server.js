@@ -24,7 +24,7 @@ io.on('connection', (socket) => {
   io.to(socket.id).emit('connect-successful', playerPin)
 
   socket.on('create-game', (name) => {
-    console.log('create-game', name)
+    console.log('create-game', name, 'by', playerPin)
     if (!playerPin) {
       console.log(`failed to create pin for ${name}`)
       return
@@ -37,7 +37,7 @@ io.on('connection', (socket) => {
     io.to(sessionPin).emit('game-update', session)
   })
   socket.on('join-game', (pin, name) => {
-    console.log('join-game', pin, name)
+    console.log('join-game', pin, name, 'by', playerPin)
     if (!playerPin) {
       console.log(`failed to create pin for ${name}`)
       return
@@ -54,9 +54,15 @@ io.on('connection', (socket) => {
     session.addPlayer(playerPin, name)
     io.to(sessionPin).emit('game-update', session)
   })
-  socket.on('start-game', (word) => {
-    console.log('start-game', word)
+  socket.on('set-word', (word) => {
+    console.log('set-word', word, 'by', playerPin)
     session.setPlayerWord(playerPin, word)
+    io.to(sessionPin).emit('game-update', session)
+  })
+  socket.on('start-game', () => {
+    console.log('start-game by', playerPin)
+    // session.setPlayerWord(playerPin, word)
+    session.togglePlayerReady(playerPin)
     io.to(sessionPin).emit('game-update', session)
   })
   socket.on('guess-letter', (letter) => {
@@ -139,10 +145,13 @@ io.on('connection', (socket) => {
     // Handle game logic
     session.removePlayer(playerPin)
     io.to(sessionPin).emit('game-update', session)
-    if (!session.isLobby && session.checkGameOver()) {
+    if (session.checkGameOver()) {
+      io.in(sessionPin).clients((error, sockets) => {
+        if (error) throw error
+        sockets.forEach(socket => io.sockets.sockets[socket].leave(sessionPin))
+      })
       console.log('reset session', sessionPin)
       session.reset()
-
     }
   })
 })

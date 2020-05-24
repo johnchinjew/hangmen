@@ -23,6 +23,14 @@ export function Player(pin, name) {
     return this.alive
   }
 
+  this.setWord = function(word) {
+    this.word = word
+  }
+
+  this.toggleReady = function() {
+    this.ready = !this.ready
+  }
+
   this.setWordAndReady = function (word) {
     this.word = word
     this.ready = true

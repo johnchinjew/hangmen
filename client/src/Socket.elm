@@ -31,14 +31,32 @@ emitJoinGame pin name =
         )
 
 
-emitStartGame : String -> Cmd msg
-emitStartGame word =
+emitSetWord : String -> Cmd msg
+emitSetWord word =
     Ports.toSocket
         (Encode.object
-            [ ( "tag", Encode.string "start-game" )
+            [ ( "tag", Encode.string "set-word" )
             , ( "word", Encode.string word )
             ]
         )
+
+
+emitStartGame : Cmd msg 
+emitStartGame = 
+    Ports.toSocket
+        (Encode.object
+            [ ( "tag", Encode.string "start-game" )
+            ]
+        )
+
+-- emitStartGame : String -> Cmd msg
+-- emitStartGame word =
+--     Ports.toSocket
+--         (Encode.object
+--             [ ( "tag", Encode.string "start-game" )
+--             , ( "word", Encode.string word )
+--             ]
+--         )
 
 
 emitGuessLetter : String -> Cmd msg

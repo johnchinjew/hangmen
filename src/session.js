@@ -63,31 +63,63 @@ export function Session() {
   }
 
   this.setPlayerWord = function (pin, word) {
-    // if (!this.isLobby) return    // Removed to permit hotjoins
-
     const player = this.players[pin]
-
     if (!player) return
-
-    player.setWordAndReady(word)
-
-    if (this.isLobby) {
-      // Check number of players in lobby
-      if (Object.keys(this.players).length < 2) return
-  
-      // If all players are ready, start the game
-      const allReady = Object.values(this.players).reduce(
-        (a, p) => a && p.isReady(),
-        true,
-      )
-      if (allReady) {
-        // Starting game process
-        this._start()
-      }
-    } else {
+    player.setWord(word)
+    if (!this.isLobby) {
+      player.toggleReady()
       this.turnOrder.push(pin)
     }
   }
+
+  this.togglePlayerReady = function (pin) {
+    if (!this.isLobby) return // Hotjoins should immediately toggle player readiness 
+                              // automatically append to turnOrder
+    const player = this.players[pin]
+    if (!player) return
+    player.toggleReady()
+
+    // Check number of players in lobby
+    if (Object.keys(this.players).length < 2) return
+
+    // If all players are ready, start the game
+    const allReady = Object.values(this.players).reduce(
+      (a, p) => a && p.isReady(),
+      true,
+    )
+    if (allReady) {
+      // Starting game process
+      this._start()
+    }
+
+  }
+
+  // this.setPlayerWord = function (pin, word) {
+  //   // if (!this.isLobby) return    // Removed to permit hotjoins
+
+  //   const player = this.players[pin]
+
+  //   if (!player) return
+
+  //   player.setWordAndReady(word)
+
+  //   if (this.isLobby) {
+  //     // Check number of players in lobby
+  //     if (Object.keys(this.players).length < 2) return
+  
+  //     // If all players are ready, start the game
+  //     const allReady = Object.values(this.players).reduce(
+  //       (a, p) => a && p.isReady(),
+  //       true,
+  //     )
+  //     if (allReady) {
+  //       // Starting game process
+  //       this._start()
+  //     }
+  //   } else {
+  //     this.turnOrder.push(pin)
+  //   }
+  // }
 
   this._start = function () {
     // Randomly generate turn order using keys in player map
@@ -145,6 +177,7 @@ export function Session() {
   }
 
   this.checkGameOver = function () {
+    if (this.isLobby) return
     let gameOver = true
     for (const pin in this.players) {
       const player = this.players[pin]

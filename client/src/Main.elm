@@ -106,6 +106,7 @@ type Msg
       -- LOBBY
     | ChangedWord String
     | ClickedSetWord
+    | ClickedReady 
       -- GAME
     | ChangedGuessWord String
     | ClickedGuessLetter String
@@ -184,14 +185,24 @@ update msg model =
 
         ( ClickedSetWord, Lobby l ) ->
             if validWord l.word then
-                ( Lobby { l | hotJoining = False, error = False }
-                , Socket.emitStartGame <| String.toLower l.word
+                ( Lobby { l | hotJoining = False, error = False, word = "" }
+                , Socket.emitSetWord <| String.toLower l.word
+                -- , Socket.emitStartGame <| String.toLower l.word
                 )
 
             else
                 ( Lobby { l | error = True }
                 , Cmd.none
                 )
+
+        ( ClickedReady, Lobby l ) ->
+            if validWord <| Session.playerWord l.playerPin l.session then
+                ( model, Socket.emitStartGame )
+
+            else
+                ( Lobby { l | error = True }
+                , Cmd.none )
+            
 
         ( OnGameUpdate game, Lobby l ) ->
             if not l.hotJoining && not game.isLobby then
@@ -455,6 +466,14 @@ view model =
                                 , Html.button
                                     [ Events.onClick ClickedSetWord, Attributes.style "margin-left" "0.5rem" ]
                                     [ Html.text "Set word" ]
+                                , Html.button
+                                    [ Events.onClick ClickedReady, Attributes.style "margin-left" "0.5rem" ]
+                                    [ Html.text <|
+                                        (if not <| Session.playerReady l.playerPin l.session then
+                                            "Ready" 
+                                        
+                                        else 
+                                            "Unready")]
                                 ]
                             ]
                                 ++ (if l.error then
@@ -463,6 +482,20 @@ view model =
                                     else
                                         []
                                    )
+                                ++ (let
+                                        playerWord = Session.playerWord l.playerPin l.session
+                                    in
+                                    if validWord playerWord then 
+                                        [ Html.p [] 
+                                            [ Html.text "Your word: "
+                                            , Html.span 
+                                                [ Attributes.class "spoiler" ]
+                                                [ Html.text playerWord ]
+                                            ]
+                                        ]
+
+                                    else    
+                                        [])
 
                         else
                             -- TODO: Change logic of hotjoin
@@ -504,6 +537,12 @@ view model =
                                     "Unknown"
                       in
                       Html.text (name ++ "'s turn!")
+                    ]
+                , Html.p [] 
+                    [ Html.text "Your word: " 
+                    , Html.span 
+                        [ Attributes.class "spoiler" ]
+                        [ Html.text <| Session.playerWord g.playerPin g.session ]
                     ]
                 , viewGamePin g.session.pin
                 , viewPlayers g

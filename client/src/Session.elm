@@ -58,6 +58,25 @@ playerName pid session =
             "Unknown"
 
 
+playerWord : String -> Session -> String
+playerWord pid session =
+    case Dict.get pid session.players of
+        Just player ->
+            player.word 
+
+        Nothing ->
+            "Unknown"
+
+
+playerReady : String -> Session -> Bool
+playerReady pid session = 
+    case Dict.get pid session.players of
+        Just player ->
+            player.ready
+
+        Nothing ->
+            False
+
 
 -- DECODERS
 

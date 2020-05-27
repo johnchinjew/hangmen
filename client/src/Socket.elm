@@ -79,6 +79,13 @@ emitGuessWord pin word =
             ]
         )
 
+emitSkipTurn : Cmd msg 
+emitSkipTurn = 
+    Ports.toSocket
+        (Encode.object
+            [ ( "tag", Encode.string "skip-turn" ) 
+            ]
+        )
 
 
 -- INBOUND

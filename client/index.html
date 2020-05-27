@@ -27,6 +27,7 @@
             border-radius: 4px;
             transition: 0.3s;
         }
+
         button:hover:not([disabled]) {
             background-color: gray;
             border-color: gray;
@@ -52,6 +53,12 @@
             background: white;
             border: 2px solid lightgrey;
             border-radius: 4px;     
+            transition: 0.3s;
+        }
+
+        input:disabled {
+            border-color: whitesmoke;
+            color: whitesmoke;
         }
 
         label {
@@ -81,6 +88,8 @@
                 socket.emit(event.tag, event.letter)
             else if (event.tag == 'guess-word')
                 socket.emit(event.tag, event.pin, event.word)
+            else if (event.tag == 'skip-turn')
+                socket.emit(event.tag)
         })
 
         socket.on('game-update', (game) => {

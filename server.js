@@ -67,7 +67,7 @@ io.on('connection', (socket) => {
   })
   socket.on('guess-letter', (letter) => {
     // Sanity checks
-    console.log('guess-letter', letter)
+    console.log('guess-letter', letter, 'by', playerPin)
     if (playerPin !== session.currentPlayerPin()) {
       console.log(`${playerPin} attempted out-of-order guess-turn`)
       return
@@ -90,7 +90,7 @@ io.on('connection', (socket) => {
   })
   socket.on('guess-word', (pin, word) => {
     // Sanity checks
-    console.log('guess-word', pin, word)
+    console.log('guess-word', pin, word, 'by', playerPin)
     if (playerPin !== session.currentPlayerPin()) {
       console.log(`${playerPin} attempted out-of-order guess-word`)
       return
@@ -113,7 +113,7 @@ io.on('connection', (socket) => {
   })
   socket.on('skip-turn', () => {
     // Sanity checks
-    console.log('skip-turn')
+    console.log('skip-turn by', playerPin)
     if (playerPin !== session.currentPlayerPin()) {
       console.log(`${playerPin} attempted out-of-order skip-turn`)
       return

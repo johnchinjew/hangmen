@@ -14,6 +14,7 @@ import Random
 import Regex exposing (Regex)
 import Session exposing (Session)
 import Socket
+import Time
 
 
 
@@ -66,6 +67,7 @@ type alias GameData =
     { session : Session
     , playerPin : String
     , guessWord : String
+    , timeLeft : Int
     }
 
 
@@ -111,6 +113,7 @@ type Msg
     | ChangedGuessWord String
     | ClickedGuessLetter String
     | ClickedGuessWord String String
+    | Tick Time.Posix
       -- GAMEOVER
     | ClickedMainMenu
     | ClickedPlayAgain
@@ -206,7 +209,7 @@ update msg model =
 
         ( OnGameUpdate game, Lobby l ) ->
             if not l.hotJoining && not game.isLobby then
-                ( Game (GameData game l.playerPin "") |> Debug.log "received game!"
+                ( Game (GameData game l.playerPin "" 30) |> Debug.log "received game!"
                 , Cmd.none
                 )
 
@@ -245,6 +248,15 @@ update msg model =
                     ( GameOver (GameOverData Nothing game g.playerPin playerName) |> Debug.log "recieved game!"
                     , Cmd.none
                     )
+
+        ( Tick time, Game g ) ->
+            if Session.turn g.session == Just g.playerPin && g.timeLeft == 1 then 
+                ( Game { g | timeLeft = 30 }
+                , Socket.emitSkipTurn )
+
+            else 
+                ( Game { g | timeLeft = g.timeLeft - 1 }
+                , Cmd.none )
 
         ( ClickedMainMenu, GameOver g ) ->
             ( Home <| HomeData Create "" "" "" Nothing False 0
@@ -345,7 +357,9 @@ subscriptions model =
                     Err _ ->
                         NoOp |> Debug.log "failed to decode playerPin"
             )
+        , Time.every 1000 Tick
         ]
+    
 
 
 
@@ -461,10 +475,25 @@ view model =
                                     [ Attributes.placeholder "Enter your word"
                                     , Attributes.value l.word
                                     , Events.onInput ChangedWord
+                                    , Attributes.disabled <| Session.playerReady l.playerPin l.session 
                                     ]
                                     []
                                 , Html.button
-                                    [ Events.onClick ClickedSetWord, Attributes.style "margin-left" "0.5rem" ]
+                                    [ Events.onClick ClickedSetWord
+                                    , Attributes.style "margin-left" "0.5rem"
+                                    , Attributes.style "border-color" <|
+                                        if Session.playerReady l.playerPin l.session then 
+                                            "whitesmoke"
+                                        
+                                        else 
+                                            "lightgrey"
+                                    , Attributes.style "color" <|
+                                        if Session.playerReady l.playerPin l.session then
+                                            "whitesmoke"
+
+                                        else 
+                                            "black"
+                                    , Attributes.disabled <| Session.playerReady l.playerPin l.session ]
                                     [ Html.text "Set word" ]
                                 , Html.button
                                     [ Events.onClick ClickedReady, Attributes.style "margin-left" "0.5rem" ]
@@ -485,20 +514,19 @@ view model =
                                 ++ (let
                                         playerWord = Session.playerWord l.playerPin l.session
                                     in
-                                    if validWord playerWord then 
-                                        [ Html.p [] 
+                                    [ Html.p [] <|
+                                        if validWord playerWord then 
                                             [ Html.text "Your word: "
                                             , Html.span 
                                                 [ Attributes.class "spoiler" ]
                                                 [ Html.text playerWord ]
                                             ]
-                                        ]
 
-                                    else    
-                                        [])
+                                        else 
+                                            [ Html.text "You have not set a word yet." ]
+                                    ])
 
                         else
-                            -- TODO: Change logic of hotjoin
                             [ Html.h2 []
                                 [ Html.text "Game in-session! Hotjoining..." ]
                             , Html.p []
@@ -558,10 +586,13 @@ view model =
                             [])
                     )
                     [ Html.text <|
-                        if isMyTurn then 
+                        (if isMyTurn then 
                             "It's your turn! Guess a letter below OR guess a word." 
                         else 
-                            "Wait for your turn..." 
+                            "Wait for your turn..." )
+                        ++ "    " 
+                        ++ String.fromInt g.timeLeft ++ "s left!"
+                        
                     ]
                 ]
                     -- ++ (if isMyTurn then
@@ -653,7 +684,7 @@ view model =
 viewGamePin : String -> Html Msg
 viewGamePin pin =
     Html.h3
-        [ Attributes.style "position" "fixed"
+        [ Attributes.style "position" "absolute"
         , Attributes.style "top" "0.4rem"
         , Attributes.style "right" "0"
         , Attributes.style "margin" "2rem"
@@ -719,7 +750,7 @@ viewPlayers g =
                                                )
                                     , Events.onClick (ClickedGuessWord player.pin g.guessWord)
                                     ]
-                                    [ Html.text "Sudden Death" ]
+                                    [ Html.text "⚔️" ]
                                 ]
 
                             else

@@ -1,7 +1,7 @@
 import { pin } from './pin.js'
 import { Player } from './player.js'
 import { Alphabet } from './alphabet.js'
-import { Mutex } from 'async-mutex'
+import { Mutex, withTimeout } from 'async-mutex'
 import { EventEmitter } from 'events'
 
 /**
@@ -25,9 +25,10 @@ export function Session() {
   this.turnOrder = []
   this.alphabet = new Alphabet()
   this.skipListener = new EventEmitter()
+  this.timer = null
   this.isLobby = true
   this.log = []
-  this.lock = new Mutex()
+  this.lock = withTimeout(new Mutex(), 5000, new Error('timeout'));
 
   this.getPin = function () {
     return this.pin
@@ -130,7 +131,7 @@ export function Session() {
     this.turnOrder = Object.keys(this.players) // assumes a list is returned
     shuffle(this.turnOrder)
     this.isLobby = false
-    setInterval(() => {
+    this.timer = setInterval(() => {
       this.skipTurn()
     }, 30000);
   }
@@ -205,10 +206,13 @@ export function Session() {
   }
 
   this.reset = function () {
+    clearInterval(this.timer)
     this.players = {}
     this.turnOrder = []
     this.alphabet = new Alphabet()
+    this.timer = null
     this.isLobby = true
     this.log = []
+    this.lock = new Mutex()
   }
 }

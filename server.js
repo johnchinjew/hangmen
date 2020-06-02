@@ -35,7 +35,7 @@ io.on('connection', (socket) => {
   console.log(`${playerPin} connected to server`)
   io.to(socket.id).emit('connect-successful', playerPin)
 
-  socket.on('create-game', (name) => {
+  socket.on('create-game', async (name) => {
     console.log('create-game', name, 'by', playerPin)
     if (!playerPin) {
       console.log(`failed to create pin for ${name}`)
@@ -54,11 +54,16 @@ io.on('connection', (socket) => {
       console.log('emit-skip', sessionPin)
     })
     socket.join(sessionPin)
-    session.addPlayer(playerPin, name)
-    io.to(sessionPin).emit('game-update', session)
+    await session.lock.runExclusive(async () => {
+      session.addPlayer(playerPin, name)
+      io.to(sessionPin).emit('game-update', session)
+    })
+    // socket.join(sessionPin)
+    // session.addPlayer(playerPin, name)
+    // io.to(sessionPin).emit('game-update', session)
   })
 
-  socket.on('join-game', (pin, name) => {
+  socket.on('join-game', async (pin, name) => {
     console.log('join-game', pin, name, 'by', playerPin)
     if (!playerPin) {
       console.log(`failed to create pin for ${name}`)
@@ -73,24 +78,42 @@ io.on('connection', (socket) => {
 
     console.log(`joined game ${sessionPin}`)
     socket.join(sessionPin)
-    session.addPlayer(playerPin, name)
-    io.to(sessionPin).emit('game-update', session)
+    await session.lock.runExclusive(async () => {
+      session.addPlayer(playerPin, name)
+      io.to(sessionPin).emit('game-update', session)
+    })
+    // session.addPlayer(playerPin, name)
+    // io.to(sessionPin).emit('game-update', session)
   })
 
-  socket.on('set-word', (word) => {
+  socket.on('set-word', async (word) => {
     console.log('set-word', word, 'by', playerPin)
-    session.setPlayerWord(playerPin, word)
-    io.to(sessionPin).emit('game-update', session)
-  })
-
-  socket.on('start-game', () => {
-    console.log('start-game by', playerPin)
+    await session.lock.runExclusive(async () => {
+      session.setPlayerWord(playerPin, word)
+      io.to(sessionPin).emit('game-update', session)
+    })
     // session.setPlayerWord(playerPin, word)
-    session.togglePlayerReady(playerPin)
-    io.to(sessionPin).emit('game-update', session)
+    // io.to(sessionPin).emit('game-update', session)
   })
 
-  socket.on('guess-letter', (letter) => {
+  socket.on('toggle-ready', async () => {
+    console.log('toggle-ready by', playerPin)
+    await session.lock.runExclusive(async () => {
+      session.togglePlayerReady(playerPin)
+      io.to(sessionPin).emit('game-update', session)
+    })
+    // session.togglePlayerReady(playerPin)
+    // io.to(sessionPin).emit('game-update', session)
+  })
+
+  // socket.on('start-game', () => {
+  //   console.log('start-game by', playerPin)
+  //   // session.setPlayerWord(playerPin, word)
+  //   session.togglePlayerReady(playerPin)
+  //   io.to(sessionPin).emit('game-update', session)
+  // })
+
+  socket.on('guess-letter', async (letter) => {
     // Sanity checks
     console.log('guess-letter', letter, 'by', playerPin)
     if (playerPin !== session.currentPlayerPin()) {
@@ -102,12 +125,17 @@ io.on('connection', (socket) => {
     }
 
     // Handle game logic
-    session.guessLetter(letter)
-    io.to(sessionPin).emit('game-update', session)
-    handleReset()
+    await session.lock.runExclusive(async () => {
+      session.guessLetter(letter)
+      io.to(sessionPin).emit('game-update', session)
+      handleReset()
+    })
+    // session.guessLetter(letter)
+    // io.to(sessionPin).emit('game-update', session)
+    // handleReset()
   })
 
-  socket.on('guess-word', (pin, word) => {
+  socket.on('guess-word', async (pin, word) => {
     // Sanity checks
     console.log('guess-word', pin, word, 'by', playerPin)
     if (playerPin !== session.currentPlayerPin()) {
@@ -119,9 +147,14 @@ io.on('connection', (socket) => {
     }
 
     // Handle game logic
-    session.guessWord(pin, word)
-    io.to(sessionPin).emit('game-update', session)
-    handleReset()
+    await session.lock.runExclusive(async () => {
+      session.guessWord(pin, word)
+      io.to(sessionPin).emit('game-update', session)
+      handleReset()
+    })
+    // session.guessWord(pin, word)
+    // io.to(sessionPin).emit('game-update', session)
+    // handleReset()
   })
 
   // socket.on('skip-turn', () => {
@@ -141,7 +174,7 @@ io.on('connection', (socket) => {
   //   handleReset()
   // })
 
-  socket.on('disconnect', () => {
+  socket.on('disconnect', async () => {
     // Sanity check
     if (!session || !playerPin || !sessionPin) {
       return
@@ -149,8 +182,13 @@ io.on('connection', (socket) => {
     console.log('disconnect', playerPin)
 
     // Handle game logic
-    session.removePlayer(playerPin)
-    io.to(sessionPin).emit('game-update', session)
-    handleReset()
+    await session.lock.runExclusive(async () => {
+      session.removePlayer(playerPin)
+      io.to(sessionPin).emit('game-update', session)
+      handleReset()
+    })
+    // session.removePlayer(playerPin)
+    // io.to(sessionPin).emit('game-update', session)
+    // handleReset()
   })
 })

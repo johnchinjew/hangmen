@@ -41,11 +41,11 @@ emitSetWord word =
         )
 
 
-emitStartGame : Cmd msg 
-emitStartGame = 
+emitToggleReady : Cmd msg 
+emitToggleReady = 
     Ports.toSocket
         (Encode.object
-            [ ( "tag", Encode.string "start-game" )
+            [ ( "tag", Encode.string "toggle-ready" )
             ]
         )
 

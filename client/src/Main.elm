@@ -200,7 +200,7 @@ update msg model =
 
         ( ClickedReady, Lobby l ) ->
             if validWord <| Session.playerWord l.playerPin l.session then
-                ( model, Socket.emitStartGame )
+                ( model, Socket.emitToggleReady )
 
             else
                 ( Lobby { l | error = True }

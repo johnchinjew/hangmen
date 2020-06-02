@@ -16,9 +16,21 @@ app.use('/', express.static('client'))
 const sessionManager = new SessionManager()
 
 io.on('connection', (socket) => {
+  // Consider setting session and sessionPin to null on disconnect 
   let session = null
-  let sessionPin = null
+  let sessionPin = null 
   let playerPin = pin()
+
+  const handleReset = function () {
+    if (!session.isLobby && session.checkGameOver()) {
+      io.in(sessionPin).clients((error, sockets) => {
+        if (error) throw error
+        sockets.forEach(socket => io.sockets.sockets[socket].leave(sessionPin))
+      })
+      console.log('reset session', sessionPin)
+      session.reset()
+    }
+  }
 
   console.log(`${playerPin} connected to server`)
   io.to(socket.id).emit('connect-successful', playerPin)
@@ -32,10 +44,20 @@ io.on('connection', (socket) => {
     sessionPin = sessionManager.createSession()
     console.log(`created game ${sessionPin}`)
     session = sessionManager.getSession(sessionPin)
+    if (!session) {
+      console.log(`failed to create game ${sessionPin}`)
+      return
+    }
+    // Establish connection between session and server
+    session.skipListener.on('emit-skip', () => {
+      io.to(sessionPin).emit('game-update', session)
+      console.log('emit-skip', sessionPin)
+    })
     socket.join(sessionPin)
     session.addPlayer(playerPin, name)
     io.to(sessionPin).emit('game-update', session)
   })
+
   socket.on('join-game', (pin, name) => {
     console.log('join-game', pin, name, 'by', playerPin)
     if (!playerPin) {
@@ -54,17 +76,20 @@ io.on('connection', (socket) => {
     session.addPlayer(playerPin, name)
     io.to(sessionPin).emit('game-update', session)
   })
+
   socket.on('set-word', (word) => {
     console.log('set-word', word, 'by', playerPin)
     session.setPlayerWord(playerPin, word)
     io.to(sessionPin).emit('game-update', session)
   })
+
   socket.on('start-game', () => {
     console.log('start-game by', playerPin)
     // session.setPlayerWord(playerPin, word)
     session.togglePlayerReady(playerPin)
     io.to(sessionPin).emit('game-update', session)
   })
+
   socket.on('guess-letter', (letter) => {
     // Sanity checks
     console.log('guess-letter', letter, 'by', playerPin)
@@ -79,15 +104,9 @@ io.on('connection', (socket) => {
     // Handle game logic
     session.guessLetter(letter)
     io.to(sessionPin).emit('game-update', session)
-    if (session.checkGameOver()) {
-      io.in(sessionPin).clients((error, sockets) => {
-        if (error) throw error
-        sockets.forEach(socket => io.sockets.sockets[socket].leave(sessionPin))
-      })
-      console.log('reset session', sessionPin)
-      session.reset()
-    }
+    handleReset()
   })
+
   socket.on('guess-word', (pin, word) => {
     // Sanity checks
     console.log('guess-word', pin, word, 'by', playerPin)
@@ -102,39 +121,26 @@ io.on('connection', (socket) => {
     // Handle game logic
     session.guessWord(pin, word)
     io.to(sessionPin).emit('game-update', session)
-    if (session.checkGameOver()) {
-      io.in(sessionPin).clients((error, sockets) => {
-        if (error) throw error
-        sockets.forEach(socket => io.sockets.sockets[socket].leave(sessionPin))
-      })
-      console.log('reset session', sessionPin)
-      session.reset()
-    }
+    handleReset()
   })
-  socket.on('skip-turn', () => {
-    // Sanity checks
-    console.log('skip-turn by', playerPin)
-    if (playerPin !== session.currentPlayerPin()) {
-      console.log(`${playerPin} attempted out-of-order skip-turn`)
-      return
-    }
-    if (!session) {
-      console.log(`${playerPin} attempted skip-word in non-existent session`)
-    }
 
-    // Handle game logic
-    session.skipTurn()
-    io.to(sessionPin).emit('game-update', session)
-    if (session.checkGameOver()) {
-      io.in(sessionPin).clients((error, sockets) => {
-        if (error) throw error
-        sockets.forEach(socket => io.sockets.sockets[socket].leave(sessionPin))
-      })
-      console.log('reset session', sessionPin)
-      session.reset()
-    }
-  })
-  // Detect disconnect -> removePlayer -> Broadcast/GameOver?
+  // socket.on('skip-turn', () => {
+  //   // Sanity checks
+  //   console.log('skip-turn by', playerPin)
+  //   if (playerPin !== session.currentPlayerPin()) {
+  //     console.log(`${playerPin} attempted out-of-order skip-turn`)
+  //     return
+  //   }
+  //   if (!session) {
+  //     console.log(`${playerPin} attempted skip-word in non-existent session`)
+  //   }
+
+  //   // Handle game logic
+  //   session.skipTurn()
+  //   io.to(sessionPin).emit('game-update', session)
+  //   handleReset()
+  // })
+
   socket.on('disconnect', () => {
     // Sanity check
     if (!session || !playerPin || !sessionPin) {
@@ -145,13 +151,6 @@ io.on('connection', (socket) => {
     // Handle game logic
     session.removePlayer(playerPin)
     io.to(sessionPin).emit('game-update', session)
-    if (session.checkGameOver()) {
-      io.in(sessionPin).clients((error, sockets) => {
-        if (error) throw error
-        sockets.forEach(socket => io.sockets.sockets[socket].leave(sessionPin))
-      })
-      console.log('reset session', sessionPin)
-      session.reset()
-    }
+    handleReset()
   })
 })

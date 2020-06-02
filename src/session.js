@@ -1,6 +1,8 @@
 import { pin } from './pin.js'
 import { Player } from './player.js'
 import { Alphabet } from './alphabet.js'
+import { Mutex } from 'async-mutex'
+import { EventEmitter } from 'events'
 
 /**
  * Shuffles array in place.
@@ -22,8 +24,10 @@ export function Session() {
   this.players = {}
   this.turnOrder = []
   this.alphabet = new Alphabet()
+  this.skipListener = new EventEmitter()
   this.isLobby = true
   this.log = []
+  this.lock = new Mutex()
 
   this.getPin = function () {
     return this.pin
@@ -126,6 +130,9 @@ export function Session() {
     this.turnOrder = Object.keys(this.players) // assumes a list is returned
     shuffle(this.turnOrder)
     this.isLobby = false
+    setInterval(() => {
+      this.skipTurn()
+    }, 30000);
   }
 
   this.guessLetter = function (letter) {
@@ -188,6 +195,7 @@ export function Session() {
 
   this.skipTurn = function () {
     this._progressTurn()
+    this.skipListener.emit('emit-skip')
   }
 
   this._progressTurn = function () {

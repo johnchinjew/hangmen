@@ -231,7 +231,7 @@ update msg model =
         ( OnGameUpdate game, Game g ) ->
             case Session.status game of
                 Session.Playing ->
-                    ( Game { g | session = game } |> Debug.log "received game!"
+                    ( Game { g | session = game, timeLeft = 30 } |> Debug.log "received game!"
                     , Cmd.none
                     )
 
@@ -250,13 +250,14 @@ update msg model =
                     )
 
         ( Tick time, Game g ) ->
-            if Session.turn g.session == Just g.playerPin && g.timeLeft == 1 then 
-                ( Game { g | timeLeft = 30 }
-                , Socket.emitSkipTurn )
+            ( Game { g | timeLeft = g.timeLeft - 1 }, Cmd.none )
+            -- if Session.turn g.session == Just g.playerPin && g.timeLeft == 1 then 
+            --     ( Game { g | timeLeft = 30 }
+            --     , Socket.emitSkipTurn )
 
-            else 
-                ( Game { g | timeLeft = g.timeLeft - 1 }
-                , Cmd.none )
+            -- else 
+            --     ( Game { g | timeLeft = g.timeLeft - 1 }
+            --     , Cmd.none )
 
         ( ClickedMainMenu, GameOver g ) ->
             ( Home <| HomeData Create "" "" "" Nothing False 0

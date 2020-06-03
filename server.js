@@ -32,6 +32,8 @@ io.on('connection', (socket) => {
     }
   }
 
+  const getState = (({ pin, players, turnOrder, alphabet, isLobby }) => ({ pin, players, turnOrder, alphabet, isLobby }))
+
   console.log(`${playerPin} connected to server`)
   io.to(socket.id).emit('connect-successful', playerPin)
 
@@ -50,13 +52,15 @@ io.on('connection', (socket) => {
     }
     // Establish connection between session and server
     session.skipListener.on('emit-skip', () => {
-      io.to(sessionPin).emit('game-update', session)
+      io.to(sessionPin).emit('game-update', getState(session))
+      // io.to(sessionPin).emit('game-update', session)
       console.log('emit-skip', sessionPin)
     })
     socket.join(sessionPin)
     await session.lock.runExclusive(async () => {
       session.addPlayer(playerPin, name)
-      io.to(sessionPin).emit('game-update', session)
+      // io.to(sessionPin).emit('game-update', session)
+      io.to(sessionPin).emit('game-update', getState(session))
     })
     // socket.join(sessionPin)
     // session.addPlayer(playerPin, name)
@@ -80,7 +84,8 @@ io.on('connection', (socket) => {
     socket.join(sessionPin)
     await session.lock.runExclusive(async () => {
       session.addPlayer(playerPin, name)
-      io.to(sessionPin).emit('game-update', session)
+      // io.to(sessionPin).emit('game-update', session)
+      io.to(sessionPin).emit('game-update', getState(session))
     })
     // session.addPlayer(playerPin, name)
     // io.to(sessionPin).emit('game-update', session)
@@ -90,7 +95,8 @@ io.on('connection', (socket) => {
     console.log('set-word', word, 'by', playerPin)
     await session.lock.runExclusive(async () => {
       session.setPlayerWord(playerPin, word)
-      io.to(sessionPin).emit('game-update', session)
+      io.to(sessionPin).emit('game-update', getState(session))
+      // io.to(sessionPin).emit('game-update', session)
     })
     // session.setPlayerWord(playerPin, word)
     // io.to(sessionPin).emit('game-update', session)
@@ -100,7 +106,8 @@ io.on('connection', (socket) => {
     console.log('toggle-ready by', playerPin)
     await session.lock.runExclusive(async () => {
       session.togglePlayerReady(playerPin)
-      io.to(sessionPin).emit('game-update', session)
+      io.to(sessionPin).emit('game-update', getState(session))
+      // io.to(sessionPin).emit('game-update', session)
     })
     // session.togglePlayerReady(playerPin)
     // io.to(sessionPin).emit('game-update', session)
@@ -127,7 +134,8 @@ io.on('connection', (socket) => {
     // Handle game logic
     await session.lock.runExclusive(async () => {
       session.guessLetter(letter)
-      io.to(sessionPin).emit('game-update', session)
+      io.to(sessionPin).emit('game-update', getState(session))
+      // io.to(sessionPin).emit('game-update', session)
       handleReset()
     })
     // session.guessLetter(letter)
@@ -149,7 +157,8 @@ io.on('connection', (socket) => {
     // Handle game logic
     await session.lock.runExclusive(async () => {
       session.guessWord(pin, word)
-      io.to(sessionPin).emit('game-update', session)
+      io.to(sessionPin).emit('game-update', getState(session))
+      // io.to(sessionPin).emit('game-update', session)
       handleReset()
     })
     // session.guessWord(pin, word)
@@ -184,7 +193,8 @@ io.on('connection', (socket) => {
     // Handle game logic
     await session.lock.runExclusive(async () => {
       session.removePlayer(playerPin)
-      io.to(sessionPin).emit('game-update', session)
+      io.to(sessionPin).emit('game-update', getState(session))
+      // io.to(sessionPin).emit('game-update', session)
       handleReset()
     })
     // session.removePlayer(playerPin)

@@ -28,7 +28,7 @@ export function Session() {
   this.timer = null
   this.isLobby = true
   this.log = []
-  this.lock = withTimeout(new Mutex(), 5000, new Error('timeout'));
+  this.lock = new Mutex()
 
   this.getPin = function () {
     return this.pin

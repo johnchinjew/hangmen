@@ -1,7 +1,7 @@
 import { pin } from './pin.js'
 import { Player } from './player.js'
 import { Alphabet } from './alphabet.js'
-import { Mutex, withTimeout } from 'async-mutex'
+import { Mutex } from 'async-mutex'
 import { EventEmitter } from 'events'
 
 /**
@@ -25,7 +25,9 @@ export function Session() {
   this.turnOrder = []
   this.alphabet = new Alphabet()
   this.skipListener = new EventEmitter()
-  this.timer = null
+  this.endtime = 0
+  this.timeout = null
+  this.timeLeft = 0
   this.isLobby = true
   this.log = []
   this.lock = new Mutex()
@@ -131,9 +133,10 @@ export function Session() {
     this.turnOrder = Object.keys(this.players) // assumes a list is returned
     shuffle(this.turnOrder)
     this.isLobby = false
-    this.timer = setInterval(() => {
-      this.skipTurn()
-    }, 30000);
+    // this.timer.start()
+    this.endtime = Date.now() + 30 * 1000
+    const ms = this.endtime - Date.now()
+    this.timeout = setTimeout(skipTurn, ms)
   }
 
   this.guessLetter = function (letter) {
@@ -150,7 +153,9 @@ export function Session() {
     }
 
     const guesser = this._currentPlayer()
-    if (!this.checkGameOver() && guesser.isAlive()) this._progressTurn()
+    if (!this.checkGameOver() && guesser.isAlive()) {
+      this._progressTurn()
+    }
   }
 
   this.currentPlayerPin = function () {
@@ -187,30 +192,40 @@ export function Session() {
   this.checkGameOver = function () {
     if (this.isLobby) return
     let gameOver = true
-    for (const pin in this.players) {
+    for (const pin in this.players) { 
       const player = this.players[pin]
       if (pin !== this.currentPlayerPin() && player.isAlive()) gameOver = false
     }
     return gameOver
   }
 
-  this.skipTurn = function () {
+  var skipTurn = function () {
     this._progressTurn()
     this.skipListener.emit('emit-skip')
   }
+  skipTurn = skipTurn.bind(this)
 
   this._progressTurn = function () {
     // Let's hope this works
     const top = this.turnOrder.splice(0, 1)[0]
     this.turnOrder.push(top)
+    // this.timer.reset()
+    this.endtime = Date.now() + 30 * 1000
+    if (this.timeout)
+      clearTimeout(this.timeout)
+    const ms = this.endtime - Date.now()
+    this.timeout = setTimeout(skipTurn, ms)
   }
 
   this.reset = function () {
-    clearInterval(this.timer)
+    // this.timer.stop()
+    this.endtime = 0
+    if (this.timeout) 
+      clearTimeout(this.timeout)
+    this.timeout = null
     this.players = {}
     this.turnOrder = []
     this.alphabet = new Alphabet()
-    this.timer = null
     this.isLobby = true
     this.log = []
     this.lock = new Mutex()

@@ -15,6 +15,7 @@ import Random
 import Regex exposing (Regex)
 import Session exposing (Session)
 import Socket
+import Task
 import Time
 
 
@@ -70,6 +71,7 @@ type alias GameData =
     , guessWord : String
     , isModalOpen : Bool
     , target : Maybe Player
+    , setTime : Bool
     , timeLeft : Int
     }
 
@@ -214,7 +216,7 @@ update msg model =
 
         ( OnGameUpdate game, Lobby l ) ->
             if not l.hotJoining && not game.isLobby then
-                ( Game (GameData game l.playerPin "" False Nothing 30) |> Debug.log "received game!"
+                ( Game (GameData game l.playerPin "" False Nothing True 30) |> Debug.log "received game!"
                 , Cmd.none
                 )
 
@@ -247,7 +249,7 @@ update msg model =
         ( OnGameUpdate game, Game g ) ->
             case Session.status game of
                 Session.Playing ->
-                    ( Game { g | session = game, isModalOpen = False, timeLeft = 30} |> Debug.log "received game!"
+                    ( Game { g | session = game, isModalOpen = False, setTime = True } |> Debug.log "received game!"
                     , Cmd.none
                     )
 
@@ -266,7 +268,10 @@ update msg model =
                     )
 
         ( Tick time, Game g ) ->
-            ( Game { g | timeLeft = g.timeLeft - 1 }, Cmd.none )
+            if g.setTime then 
+                ( Game { g | timeLeft = Session.timeLeft time g.session, setTime = False }, Cmd.none )
+            else 
+                ( Game { g | timeLeft = g.timeLeft - 1 }, Cmd.none )
             -- if Session.turn g.session == Just g.playerPin && g.timeLeft == 1 then 
             --     ( Game { g | timeLeft = 30 }
             --     , Socket.emitSkipTurn )
@@ -389,7 +394,7 @@ view model =
     , body =
         case model of
             Home h ->
-                [ Html.h1 [] [ Html.text "Hangmen" ]
+                [ Html.h1 [] [ Html.text "Hangmen (TESTING)" ]
                 , Html.p []
                     [ Html.text "Scalable hangman" ]
                 , Html.div []
@@ -497,7 +502,6 @@ view model =
                                     []
                                 , Html.button
                                     [ Events.onClick ClickedSetWord
-                                    , Attributes.style "margin-left" "0.5rem"
                                     , Attributes.style "border-color" <|
                                         if Session.playerReady l.playerPin l.session then 
                                             "whitesmoke"
@@ -513,7 +517,7 @@ view model =
                                     , Attributes.disabled <| Session.playerReady l.playerPin l.session ]
                                     [ Html.text "Set word" ]
                                 , Html.button
-                                    [ Events.onClick ClickedReady, Attributes.style "margin-left" "0.5rem" ]
+                                    [ Events.onClick ClickedReady ]
                                     [ Html.text <|
                                         (if not <| Session.playerReady l.playerPin l.session then
                                             "Ready" 
@@ -572,16 +576,20 @@ view model =
                         Session.turn g.session == Just g.playerPin
                 in
                 [ Html.h2 []
-                    [ let
-                        name =
-                            case Session.turn g.session of
-                                Just turn ->
-                                    Session.playerName turn g.session
+                    [ if isMyTurn then 
+                        Html.text "Your turn!"
 
-                                Nothing ->
-                                    "Unknown"
-                      in
-                      Html.text (name ++ "'s turn!")
+                    else 
+                        let
+                            name =
+                                case Session.turn g.session of
+                                    Just turn ->
+                                        Session.playerName turn g.session
+
+                                    Nothing ->
+                                        "Unknown"
+                            in
+                            Html.text (name ++ "'s turn!")
                     ]
                 , Html.p [] 
                     [ Html.text "Your word: " 
@@ -603,11 +611,14 @@ view model =
                             [])
                     )
                     [ Html.text <|
-                        (if isMyTurn then 
+                        (if not <| Session.playerAlive g.playerPin g.session then
+                            "You have died."
+                        else if isMyTurn then 
                             "It's your turn! Guess a letter below OR guess a word." 
                         else 
                             "Wait for your turn..." )
-                        ++ "    " 
+                        ++ "    "
+                        -- ++ "    Timer: " 
                         ++ String.fromInt g.timeLeft ++ "s left!"
                         
                     ]
@@ -695,7 +706,7 @@ viewGamePin pin =
         , Attributes.style "right" "0"
         , Attributes.style "margin" "2rem"
         ]
-        [ Html.text <| "Game PIN: " ++ pin ]
+        [ Html.text <| "Pin: " ++ pin ]
 
 
 viewPlayers : GameData -> Html Msg
@@ -724,6 +735,11 @@ viewPlayers g =
                          )
                             ++ " "
                             ++ player.name
+                            ++ (if player.pin == g.playerPin then
+                                    " (You)"
+                                
+                                else 
+                                    "")
                             ++ ": "
                             ++ (if not player.alive then
                                     player.word
@@ -742,18 +758,22 @@ viewPlayers g =
                                     && player.ready
                                     && player.alive
                             then
+                                let
+                                    off = Session.turn g.session
+                                        /= Just g.playerPin
+                                        || (case Session.status g.session of 
+                                            Session.Playing ->
+                                                False
+                                                
+                                            _ ->
+                                                True
+                                            )
+                                in
+                                
                                 [ Html.button
                                     [ Attributes.style "margin-left" "10px"
-                                    , Attributes.disabled <|
-                                        Session.turn g.session
-                                            /= Just g.playerPin
-                                            || (case Session.status g.session of
-                                                    Session.Playing ->
-                                                        False
-
-                                                    _ ->
-                                                        True
-                                               )
+                                    , Attributes.hidden off
+                                    , Attributes.disabled off
                                     , Events.onClick (ClickedOpenModal player)
                                     ]
                                     [ Html.text "⚔️" ]
@@ -836,59 +856,75 @@ viewAlphabet g =
 
 viewModal : GameData -> Html Msg 
 viewModal g = 
-    if g.isModalOpen then 
-        Html.div 
-            [ Attributes.id "modal-mask" ] 
-            [ Html.div 
-                [ Attributes.id "modal" ]
-                [ Html.button 
-                    [ Attributes.style "position" "absolute"
-                    , Attributes.style "right" "5px"
-                    , Attributes.style "top" "5px"
-                    , Events.onClick ClickedCloseModal
-                    ]
-                    [ Html.span [] [ Html.text "x"] ]
-                , Html.h2 
-                    [ Attributes.style "text-align" "center" ] 
-                    [ Html.text "Sudden death" ] 
-                , Html.div 
-                    [ Attributes.style "text-align" "center" ] 
-                    [ Html.b [] 
-                        [ Html.text 
-                            <| "Target: " 
-                            ++ (case g.target of 
-                                Just player ->
-                                    player.name
-                                
-                                Nothing ->
-                                    "<ERROR> Unable to retrieve target player name" 
-                            )
-                        ] 
-                    ]
-                , Html.span 
-                    [ Attributes.style "text-align" "center" ] 
-                    [ Html.input 
-                        [ Attributes.placeholder "Enter your guess" 
-                        , Events.onInput ChangedGuessWord 
-                        ] 
-                        [ ] 
-                    , Html.button 
-                        [ Attributes.style "margin-left" "10px"
-                        , Events.onClick <| ClickedGuessWord 
-                            (case g.target of 
-                                Just player ->
-                                    player.pin
-                                
-                                Nothing ->
-                                    "" |> Debug.log "<ERROR> Unabe to retrieve target player pin"
-                            )
-                            g.guessWord  
-                        ] 
-                        [ Html.text "⚔️" ]
-                    ]
+    let
+        isVisible = if g.isModalOpen then
+                        "visible"
+                     else 
+                        "hidden"
+        top = if g.isModalOpen then
+                "50%"
+              else 
+                "-25%"
+    in
+    
+    Html.div 
+        [ Attributes.id "modal-mask"
+        , Attributes.style "visibility" isVisible
+        ] 
+        [ Html.div 
+            [ Attributes.id "modal"
+            , Attributes.style "visibility" isVisible
+            , Attributes.style "top" top
+            ]
+            [ Html.button 
+                [ Attributes.style "position" "absolute"
+                , Attributes.style "right" "3px"
+                , Attributes.style "top" "3px"
+                , Attributes.style "padding"  "0.2rem 0.2rem"
+                , Attributes.style "margin" "0px 0px"
+                , Events.onClick ClickedCloseModal
+                ]
+                [ Html.span [] [ Html.text "❌"] ]
+            , Html.h2 
+                [ Attributes.style "text-align" "center"
+                , Attributes.style "margin-bottom" "5px" ] 
+                [ Html.text "Sudden death" ] 
+            , Html.div 
+                [ Attributes.style "text-align" "center"
+                , Attributes.style "margin-top" "5px" 
+                , Attributes.style "margin-bottom" "15px"] 
+                [ Html.b [] 
+                    [ Html.text 
+                        <| "Target: " 
+                        ++ (case g.target of 
+                            Just player ->
+                                player.name
+                            
+                            Nothing ->
+                                "<ERROR> Unable to retrieve target player name" 
+                        )
+                    ] 
+                ]
+            , Html.span 
+                [ Attributes.style "text-align" "center" ] 
+                [ Html.input 
+                    [ Attributes.placeholder "Enter your guess" 
+                    , Events.onInput ChangedGuessWord 
+                    ] 
+                    [ ] 
+                , Html.button 
+                    [ Events.onClick <| ClickedGuessWord 
+                        (case g.target of 
+                            Just player ->
+                                player.pin
+                            
+                            Nothing ->
+                                "" |> Debug.log "<ERROR> Unabe to retrieve target player pin"
+                        )
+                        g.guessWord  
+                    ] 
+                    [ Html.text "⚔️" ]
                 ]
             ]
-
-    else 
-        Html.div [] []
+        ]
         

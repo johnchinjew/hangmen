@@ -2,14 +2,16 @@
 
 ## TODO
 
+- Fix timer reset after player does turn
+- Fix FE timer after player hotjoins
+    - Possibly make time left on timer as part of session state 
+
 ## TODO later
 
-- Mitigate AFK: introduce a turn timeout on server
 - Make hotjoin robust 
     - Test more hotjoin cases 
         - Leave in middle of hotjoin without setting word
 - Sanitize before sending session state in BE
-- Use locks to prevent double-guessing, etc
 - A/B later: Guess word does not need to specify a target
 - A/B later: Remove lobby
 - Improve form error messages on FE

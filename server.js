@@ -32,7 +32,7 @@ io.on('connection', (socket) => {
     }
   }
 
-  const getState = (({ pin, players, turnOrder, alphabet, isLobby }) => ({ pin, players, turnOrder, alphabet, isLobby }))
+  const getState = (({ pin, players, turnOrder, endtime, alphabet, isLobby }) => ({ pin, players, turnOrder, endtime, alphabet, isLobby }))
 
   console.log(`${playerPin} connected to server`)
   io.to(socket.id).emit('connect-successful', playerPin)
@@ -53,7 +53,6 @@ io.on('connection', (socket) => {
     // Establish connection between session and server
     session.skipListener.on('emit-skip', () => {
       io.to(sessionPin).emit('game-update', getState(session))
-      // io.to(sessionPin).emit('game-update', session)
       console.log('emit-skip', sessionPin)
     })
     socket.join(sessionPin)
